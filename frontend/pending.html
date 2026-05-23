@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Order Pending</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="./css/app.css">
+<script src="./js/api.js"></script>
+<script src="./js/actions.js"></script>
+<script src="./js/ui.js" defer></script>
+</head>
+
+<body class="bg-gray-100 flex flex-col overflow-x-hidden lg:flex-row">
+<div class="w-full shrink-0 bg-green-700 p-5 text-white lg:min-h-screen lg:w-64">
+  <h1 class="text-xl font-bold mb-6">Dharohar CRM</h1>
+  <ul class="space-y-2 text-sm">
+    <li><a href="dashboard.html">Dashboard</a></li>
+    <li><a href="orders.html">Orders</a></li>
+    <li><a href="pending.html" class="bg-green-600 p-2 rounded">Pending Orders</a></li>
+  </ul>
+</div>
+
+<div class="min-w-0 flex-1 p-4 sm:p-6">
+  <div class="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <h1 class="text-2xl font-bold">Order Pending Table</h1>
+    <button onclick="printSectionById('pendingSection', 'Order Pending')" class="bg-blue-600 text-white px-4 py-2 rounded">Print Section</button>
+  </div>
+
+  <div class="mb-6 flex flex-col gap-3 rounded bg-white p-4 shadow sm:flex-row sm:flex-wrap">
+    <select id="month" class="border p-2 rounded">
+      <option value="">Month</option>
+      <option value="01">Jan</option>
+      <option value="02">Feb</option>
+      <option value="03">Mar</option>
+      <option value="04">Apr</option>
+      <option value="05">May</option>
+      <option value="06">Jun</option>
+      <option value="07">Jul</option>
+      <option value="08">Aug</option>
+      <option value="09">Sep</option>
+      <option value="10">Oct</option>
+      <option value="11">Nov</option>
+      <option value="12">Dec</option>
+    </select>
+    <select id="year" class="border p-2 rounded">
+      <option value="">Year</option>
+      <option>2024</option>
+      <option>2025</option>
+      <option>2026</option>
+    </select>
+    <input id="dateFilter" type="date" class="border p-2 rounded">
+    <button onclick="loadPending()" class="bg-blue-500 text-white px-4 rounded">Filter</button>
+    <button onclick="resetPendingFilter()" class="bg-slate-700 text-white px-4 rounded">Reset</button>
+  </div>
+
+  <div class="mb-4 grid grid-cols-1 gap-4 rounded bg-white p-4 text-center shadow sm:grid-cols-2 xl:grid-cols-4">
+    <div><p class="text-sm text-gray-500">Grand Total</p><p id="grandTotal" class="font-bold text-xl">0</p></div>
+    <div><p class="text-sm text-gray-500">Total Qty</p><p id="totalQty" class="font-bold text-xl">0</p></div>
+    <div><p class="text-sm text-gray-500">Pending Qty</p><p id="pendingQty" class="font-bold text-xl">0</p></div>
+    <div><p class="text-sm text-gray-500">Rows</p><p id="rowCount" class="font-bold text-xl">0</p></div>
+  </div>
+
+  <div id="pendingSection" class="overflow-hidden rounded bg-white p-5 shadow">
+    <table class="w-full table-fixed break-words text-xs sm:text-sm">
+      <thead class="bg-green-700 text-white">
+        <tr>
+          <th class="p-2">Sr. No.</th>
+          <th class="p-2">Ord Dt</th>
+          <th class="p-2">Dealer</th>
+          <th class="p-2">Phone</th>
+          <th class="p-2">Tot Qty</th>
+          <th class="p-2">Pend Qty</th>
+          <th class="p-2">Prod</th>
+          <th class="p-2">Outstd</th>
+          <th class="p-2">O/D Days</th>
+          <th class="p-2 no-print">Action</th>
+        </tr>
+      </thead>
+      <tbody id="table"></tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+async function loadPending() {
+  try {
+    let path = "/api/pending";
+    if (month.value && year.value) {
+      path += `?month=${month.value}&year=${year.value}`;
+    }
+
+    const data = filterRowsByDate(await apiFetch(path), "order_date", {
+      monthId: "month",
+      yearId: "year",
+      dateId: "dateFilter",
+    });
+    table.innerHTML = data.map((o, index) => `
+      <tr class="border-b hover:bg-gray-50">
+        <td class="p-2">${index + 1}</td>
+        <td class="p-2">${formatDate(o.order_date)}</td>
+        <td class="p-2">${o.dealer_name}</td>
+        <td class="p-2">${o.dealer_phone || "-"}</td>
+        <td class="p-2">${o.qty}</td>
+        <td class="p-2">${o.pending_qty ?? o.qty}</td>
+        <td class="p-2">${o.product_name}</td>
+        <td class="p-2 text-red-600 font-bold">${formatCurrency(o.outstanding)}</td>
+        <td class="p-2">${o.days_pending} days</td>
+        <td class="p-2 no-print">${deleteButton("/api/orders", o.id, "loadPending", "order")}</td>
+      </tr>
+    `).join("");
+
+    grandTotal.innerText = formatCurrency(data.reduce((sum, row) => sum + Number(row.outstanding || 0), 0));
+    totalQty.innerText = data.reduce((sum, row) => sum + Number(row.qty || 0), 0);
+    pendingQty.innerText = data.reduce((sum, row) => sum + Number(row.pending_qty ?? row.qty ?? 0), 0);
+    rowCount.innerText = data.length;
+  } catch (err) {
+    table.innerHTML = "";
+  }
+}
+
+function resetPendingFilter() {
+  month.value = "";
+  year.value = "";
+  dateFilter.value = "";
+  loadPending();
+}
+
+fillYearOptions(year, "Year");
+loadPending();
+setInterval(loadPending, 15000);
+</script>
+</body>
+</html>

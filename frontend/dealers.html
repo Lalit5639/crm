@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dealer Master</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="./css/app.css">
+<script src="./js/api.js"></script>
+<script src="./js/actions.js"></script>
+<script src="./js/ui.js" defer></script>
+</head>
+
+<body class="bg-gray-100 overflow-x-hidden p-4 sm:p-6">
+<div class="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+  <h1 class="text-2xl font-bold">Dealer Master</h1>
+  <button onclick="printSectionById('dealerSection', 'Dealer Master')" class="bg-blue-600 text-white px-4 py-2 rounded">Print Section</button>
+</div>
+
+<div class="mb-6 grid grid-cols-1 gap-3 rounded bg-white p-4 shadow sm:grid-cols-2 xl:grid-cols-5" data-entry-form data-entry-title="Add Dealer">
+  <input id="dealer_code" placeholder="Dealer ID" class="border p-2 rounded">
+  <input id="dealer_name" placeholder="Dealer Name" class="border p-2 rounded">
+  <select id="party_type" class="border p-2 rounded">
+    <option value="PACS">PACS</option>
+    <option value="NON_PACS">Non-PACS (Private Party)</option>
+  </select>
+  <input id="phone" placeholder="Phone(10d)" class="border p-2 rounded">
+  <input id="address" placeholder="Address" class="border p-2 rounded">
+  <input id="district" placeholder="District" class="border p-2 rounded">
+  <input id="state" placeholder="State" class="border p-2 rounded">
+  <input id="credit_limit" type="number" placeholder="Credit Limit" class="border p-2 rounded">
+  <select id="active_flag" class="border p-2 rounded">
+    <option value="Y">Active (Y)</option>
+    <option value="N">Inactive (N)</option>
+  </select>
+  <input id="total_selling_bags" type="number" placeholder="Total Selling Bags" class="border p-2 rounded">
+  <button onclick="addDealer()" class="bg-green-600 text-white rounded">Add Dealer</button>
+</div>
+
+<div id="dealerSection" class="overflow-hidden rounded bg-white shadow">
+  <table class="w-full table-fixed break-words border text-left text-xs sm:text-sm">
+    <thead class="bg-green-700 text-white">
+      <tr>
+        <th class="p-3">Sr. No.</th>
+        <th class="p-3">Dealer ID</th>
+        <th class="p-3">Dealer</th>
+        <th class="p-3">Party Type</th>
+        <th class="p-3">Phone</th>
+        <th class="p-3">Address</th>
+        <th class="p-3">District</th>
+        <th class="p-3">State</th>
+        <th class="p-3">Credit</th>
+        <th class="p-3">Active</th>
+        <th class="p-3">Sell Bags</th>
+        <th class="p-3 no-print">Action</th>
+      </tr>
+    </thead>
+    <tbody id="tableBody"></tbody>
+  </table>
+</div>
+
+<script>
+async function loadDealers() {
+  try {
+    const data = await apiFetch("/api/dealers");
+    tableBody.innerHTML = data.map((d, index) => `
+      <tr class="border-b">
+        <td class="p-3">${index + 1}</td>
+        <td class="p-3">${d.dealer_code || `Deal${d.id}`}</td>
+        <td class="p-3">${d.dealer_name || d.name || ""}</td>
+        <td class="p-3">${d.party_type === "NON_PACS" ? "Non-PACS" : "PACS"}</td>
+        <td class="p-3">${d.phone || d.mobile || ""}</td>
+        <td class="p-3">${d.address || ""}</td>
+        <td class="p-3">${d.district || "-"}</td>
+        <td class="p-3">${d.state || "-"}</td>
+        <td class="p-3">${formatCurrency(d.credit_limit || 0)}</td>
+        <td class="p-3">${d.active_flag || "Y"}</td>
+        <td class="p-3">${d.total_selling_bags || 0}</td>
+        <td class="p-3 no-print">${deleteButton("/api/dealers", d.id, "loadDealers", "dealer")}</td>
+      </tr>
+    `).join("");
+  } catch (err) {
+    tableBody.innerHTML = "";
+  }
+}
+
+async function addDealer() {
+  const payload = {
+    dealer_code: dealer_code.value.trim(),
+    dealer_name: dealer_name.value.trim(),
+    party_type: party_type.value,
+    phone: phone.value.trim(),
+    address: address.value.trim(),
+    district: district.value.trim(),
+    state: state.value.trim(),
+    credit_limit: credit_limit.value || 0,
+    active_flag: active_flag.value,
+    total_selling_bags: total_selling_bags.value || 0,
+  };
+
+  if (!payload.dealer_name || !payload.phone || !payload.address) {
+    showApiStatus("Please fill dealer name, phone and address.", "info");
+    return;
+  }
+
+  try {
+    const data = await apiFetch("/api/dealers", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+    if (data.success) {
+      showApiStatus("Dealer added successfully.", "success");
+      document.querySelectorAll("input").forEach((input) => input.value = "");
+      party_type.value = "PACS";
+      active_flag.value = "Y";
+      closeEntryModal();
+      loadDealers();
+    }
+  } catch (err) {
+  }
+}
+
+loadDealers();
+</script>
+</body>
+</html>

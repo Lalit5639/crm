@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Delivery Proof</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="./css/app.css">
+<script src="./js/api.js"></script>
+<script src="./js/actions.js"></script>
+<script src="./js/ui.js" defer></script>
+</head>
+
+<body class="bg-gray-100 flex flex-col overflow-x-hidden lg:flex-row">
+<div class="w-full shrink-0 bg-green-700 p-5 text-white lg:min-h-screen lg:w-64">
+  <h1 class="text-xl font-bold mb-6">Dharohar CRM</h1>
+  <ul class="space-y-2 text-sm">
+    <li><a href="dashboard.html">Dashboard</a></li>
+    <li><a href="orders.html">Orders</a></li>
+    <li><a href="dispatch.html">Dispatch</a></li>
+    <li><a href="delivery.html" class="bg-green-600 p-2 rounded">Delivery Proof</a></li>
+  </ul>
+</div>
+
+<div class="min-w-0 flex-1 p-4 sm:p-6">
+  <div class="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <h1 class="text-2xl font-bold">Delivery Proof Table</h1>
+    <button onclick="printSectionById('deliverySection', 'Delivery Proof Table')" class="bg-blue-600 text-white px-4 py-2 rounded">Print Section</button>
+  </div>
+
+  <div class="mb-6 grid grid-cols-1 gap-3 rounded-xl bg-white p-5 shadow sm:grid-cols-2 xl:grid-cols-5" data-entry-form data-entry-title="Add Delivery">
+    <select id="order" class="entry-span-full p-2 border rounded"></select>
+    <input id="received_by" placeholder="Received By" class="entry-span-wide border p-2 rounded">
+    <input id="delivery_date" type="date" class="entry-span-narrow border p-2 rounded">
+    <input id="condition_status" placeholder="Condition" class="entry-span-wide border p-2 rounded">
+    <input id="receiver_phone" placeholder="Mobile No." class="entry-span-narrow border p-2 rounded">
+    <input id="proof_link" placeholder="Proof Link" class="entry-span-full border p-2 rounded">
+    <input id="employee_ref" placeholder="Employee Name" class="entry-span-full border p-2 rounded">
+    <input id="delivered_qty" type="number" placeholder="Delivered Qty" class="entry-span-half border p-2 rounded">
+    <input id="pending_qty" type="number" placeholder="Balance Qty" class="entry-span-half border p-2 rounded bg-gray-50" readonly>
+    <input id="notes" placeholder="Notes" class="entry-span-full border p-2 rounded">
+    <button onclick="addDeliveryProof()" class="entry-action-button bg-green-600 text-white px-5 py-2 rounded hover:bg-green-700">Add Delivery</button>
+  </div>
+
+  <div class="mb-6 flex flex-col gap-3 rounded-xl bg-white p-4 shadow sm:flex-row sm:flex-wrap">
+    <select id="deliveryMonthFilter" onchange="loadData()" class="rounded border p-2">
+      <option value="">All Months</option>
+      <option value="01">January</option>
+      <option value="02">February</option>
+      <option value="03">March</option>
+      <option value="04">April</option>
+      <option value="05">May</option>
+      <option value="06">June</option>
+      <option value="07">July</option>
+      <option value="08">August</option>
+      <option value="09">September</option>
+      <option value="10">October</option>
+      <option value="11">November</option>
+      <option value="12">December</option>
+    </select>
+    <select id="deliveryYearFilter" onchange="loadData()" class="rounded border p-2">
+      <option value="">All Years</option>
+    </select>
+    <input id="deliveryDateFilter" onchange="loadData()" type="date" class="rounded border p-2">
+    <button onclick="resetDeliveryFilter()" class="rounded bg-slate-700 px-4 py-2 text-white">Reset Filter</button>
+  </div>
+
+  <div id="deliverySection" class="overflow-hidden rounded-xl bg-white p-5 shadow">
+    <table class="w-full table-fixed break-words text-xs sm:text-sm">
+      <thead class="bg-green-700 text-white">
+        <tr>
+          <th class="p-2">Sr. No.</th>
+          <th class="p-2">Ord ID</th>
+          <th class="p-2">Del Dt</th>
+          <th class="p-2">Recv By</th>
+          <th class="p-2">Recv Ph</th>
+          <th class="p-2">Condition</th>
+          <th class="p-2">Proof</th>
+          <th class="p-2">Emp</th>
+          <th class="p-2">WA</th>
+          <th class="p-2">Ord Qty</th>
+          <th class="p-2">Del Qty</th>
+          <th class="p-2">Pend Qty</th>
+          <th class="p-2">Prod</th>
+          <th class="p-2">Notes</th>
+          <th class="p-2 no-print">Action</th>
+        </tr>
+      </thead>
+      <tbody id="table"></tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+function selectedOrderQty() {
+  return Number(order.options[order.selectedIndex]?.getAttribute("data-qty") || 0);
+}
+
+function calculatePendingQty() {
+  const orderQty = selectedOrderQty();
+  const delivered = Number(delivered_qty.value || 0);
+  pending_qty.value = Math.max(orderQty - delivered, 0);
+}
+
+async function loadOrders() {
+  try {
+    const data = await apiFetch("/api/delivery/orders");
+    order.innerHTML = data.map((o) => `
+      <option value="${o.id}" data-qty="${o.qty}">
+        Order #${o.id} - ${o.dealer_name} - Qty ${o.qty}
+      </option>
+    `).join("");
+    calculatePendingQty();
+  } catch (err) {
+    order.innerHTML = "";
+    pending_qty.value = "";
+  }
+}
+
+async function addDeliveryProof() {
+  if (!order.value) {
+    showApiStatus("Please select order.", "info");
+    return;
+  }
+
+  if (!proof_link.value.trim()) {
+    showApiStatus("Please paste delivery proof link.", "info");
+    return;
+  }
+
+  const payload = {
+    order_id: order.value,
+    delivery_date: delivery_date.value || null,
+    received_by: received_by.value.trim(),
+    receiver_phone: receiver_phone.value.trim(),
+    condition_status: condition_status.value.trim(),
+    proof_link: proof_link.value.trim(),
+    employee_ref: employee_ref.value.trim(),
+    delivered_qty: delivered_qty.value || 0,
+    pending_qty: Math.max(selectedOrderQty() - Number(delivered_qty.value || 0), 0),
+    notes: notes.value.trim()
+  };
+
+  try {
+    const data = await apiFetch("/api/delivery", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+    if (data.success) {
+      showApiStatus("Delivery entry added successfully.", "success");
+      document.querySelectorAll("input").forEach((input) => input.value = "");
+      closeEntryModal();
+      await loadOrders();
+      loadData();
+    }
+  } catch (err) {
+  }
+}
+
+async function loadData() {
+  try {
+    const data = filterRowsByDate(await apiFetch("/api/delivery"), "delivery_date", {
+      monthId: "deliveryMonthFilter",
+      yearId: "deliveryYearFilter",
+      dateId: "deliveryDateFilter",
+    });
+    table.innerHTML = data.map((d, index) => `
+      <tr class="border-b hover:bg-gray-50">
+        <td class="p-2">${index + 1}</td>
+        <td class="p-2">${d.order_id}</td>
+        <td class="p-2">${d.delivery_date || "-"}</td>
+        <td class="p-2">${d.received_by || "-"}</td>
+        <td class="p-2">${d.receiver_phone || "-"}</td>
+        <td class="p-2">${d.condition_status || "-"}</td>
+        <td class="p-2">${d.proof_link || d.image ? `<a class="text-blue-700 underline" href="${d.proof_link || `http://localhost:5000/uploads/${d.image}`}" target="_blank">${d.proof_link || d.image}</a>` : "-"}</td>
+        <td class="p-2">${d.employee_ref || "-"}</td>
+        <td class="p-2"><button onclick="sendDeliveryMsg('${encodeRow(d)}')" class="text-blue-700 underline">Send MSG</button></td>
+        <td class="p-2">${d.order_qty || 0}</td>
+        <td class="p-2">${d.delivered_qty || 0}</td>
+        <td class="p-2">${d.pending_qty ?? d.order_pending_qty ?? 0}</td>
+        <td class="p-2">${d.product_name || "-"}</td>
+        <td class="p-2">${d.notes || "-"}</td>
+        <td class="p-2 no-print">${deleteButton("/api/delivery", d.id, "refreshDelivery", "delivery")}</td>
+      </tr>
+    `).join("");
+  } catch (err) {
+    table.innerHTML = "";
+  }
+}
+
+function resetDeliveryFilter() {
+  deliveryMonthFilter.value = "";
+  deliveryYearFilter.value = "";
+  deliveryDateFilter.value = "";
+  loadData();
+}
+
+function sendDeliveryMsg(encodedRow) {
+  const row = decodeRow(encodedRow);
+  sendWhatsAppMessage(row.mobile, `Hello ${row.dealer_name},
+
+Your order #${row.order_id} has been delivered successfully.
+Delivered Qty: ${row.delivered_qty || 0}
+Pending Qty: ${row.pending_qty || 0}
+
+Thank you for your business.
+Dharohar CRM`);
+}
+
+async function refreshDelivery() {
+  await loadOrders();
+  await loadData();
+}
+
+order.addEventListener("change", calculatePendingQty);
+delivered_qty.addEventListener("input", calculatePendingQty);
+
+loadOrders();
+fillYearOptions(deliveryYearFilter);
+loadData();
+</script>
+</body>
+</html>

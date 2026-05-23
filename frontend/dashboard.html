@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="./css/app.css">
+<script src="./js/api.js"></script>
+<script src="./js/ui.js" defer></script>
+</head>
+
+<body class="dashboard-page bg-gray-100 overflow-x-hidden">
+
+<div class="w-full shrink-0 bg-green-700 p-5 text-white lg:min-h-screen lg:w-64">
+  <h1 class="text-xl font-bold mb-6">Dharohar CRM</h1>
+  <ul class="space-y-2 text-sm">
+    <li><a href="dashboard.html" class="block bg-green-600 p-2 rounded">Dashboard</a></li>
+  </ul>
+</div>
+
+<div class="min-w-0 flex-1">
+  <div class="dashboard-header">
+    <div>
+      <p class="dashboard-kicker">Live CRM summary</p>
+      <h1 class="text-2xl font-bold text-gray-800">Dashboard Overview</h1>
+    </div>
+
+    <div class="dashboard-actions">
+      <select id="monthFilter" aria-label="Month">
+        <option value="">All Months</option>
+        <option value="01">January</option>
+        <option value="02">February</option>
+        <option value="03">March</option>
+        <option value="04">April</option>
+        <option value="05">May</option>
+        <option value="06">June</option>
+        <option value="07">July</option>
+        <option value="08">August</option>
+        <option value="09">September</option>
+        <option value="10">October</option>
+        <option value="11">November</option>
+        <option value="12">December</option>
+      </select>
+
+      <select id="yearFilter" aria-label="Year">
+        <option value="">All Years</option>
+      </select>
+
+      <input id="dateFilter" type="date" aria-label="Date">
+
+      <button onclick="applyFilter()" class="bg-blue-600 text-white px-4 py-2">Filter</button>
+      <button onclick="resetFilter()" class="bg-slate-700 text-white px-4 py-2">Auto</button>
+      <button onclick="printPage()" class="bg-amber-500 text-white px-4 py-2">Print</button>
+    </div>
+  </div>
+
+  <section class="dashboard-kpi-grid">
+    <article class="metric-card">
+      <span>Total Orders</span>
+      <strong id="totalOrders">0</strong>
+    </article>
+    <article class="metric-card">
+      <span>Pending Orders</span>
+      <strong id="pendingOrders">0</strong>
+    </article>
+    <article class="metric-card">
+      <span>Delivered Orders</span>
+      <strong id="deliveredOrders">0</strong>
+    </article>
+    <article class="metric-card">
+      <span>Total Sales</span>
+      <strong id="totalSales" class="text-emerald-700">Rs 0</strong>
+    </article>
+    <article class="metric-card">
+      <span>Total Collection</span>
+      <strong id="totalCollection" class="text-blue-700">Rs 0</strong>
+    </article>
+    <article class="metric-card">
+      <span>Outstanding</span>
+      <strong id="outstanding" class="text-red-700">Rs 0</strong>
+    </article>
+  </section>
+
+  <section class="dashboard-layout">
+    <article class="dashboard-panel kpi-panel">
+      <h2>KPI</h2>
+      <table class="dashboard-table">
+        <tbody id="kpiTable"></tbody>
+      </table>
+    </article>
+
+    <article class="dashboard-panel product-panel">
+      <h2>Product-wise Sales Summary</h2>
+      <table class="dashboard-table">
+        <thead>
+          <tr>
+            <th>Product Name</th>
+            <th>Orders</th>
+            <th>Sales</th>
+          </tr>
+        </thead>
+        <tbody id="productTable"></tbody>
+      </table>
+    </article>
+
+    <article class="dashboard-panel rdm-panel">
+      <h2>RDM-wise Performance</h2>
+      <table class="dashboard-table">
+        <thead>
+          <tr>
+            <th>RDM Name</th>
+            <th>Orders</th>
+            <th>Sales</th>
+            <th>Outstanding</th>
+          </tr>
+        </thead>
+        <tbody id="rdmTable"></tbody>
+      </table>
+    </article>
+
+    <article class="dashboard-panel snapshot-panel">
+      <h2>Outstanding Snapshot</h2>
+      <div class="snapshot-grid">
+        <div><span>Total Order Value</span><strong id="snapOrderValue">Rs 0</strong></div>
+        <div><span>Total Sale Bags</span><strong id="snapSaleBags">0</strong></div>
+        <div><span>Overdue Dealers</span><strong id="snapOverdueDealers">0</strong></div>
+        <div><span>Reminder Ready</span><strong id="snapReminderReady">0</strong></div>
+      </div>
+    </article>
+
+    <article class="dashboard-panel overdue-panel">
+      <h2>Top Overdue Dealers</h2>
+      <table class="dashboard-table">
+        <thead>
+          <tr>
+            <th>Dealer Name</th>
+            <th>Total Due</th>
+            <th>Overdue Due</th>
+          </tr>
+        </thead>
+        <tbody id="overdueTable"></tbody>
+        <tfoot>
+          <tr>
+            <td>Total</td>
+            <td id="overdueTotal">Rs 0</td>
+            <td id="overdueDueTotal">Rs 0</td>
+          </tr>
+        </tfoot>
+      </table>
+    </article>
+
+    <article class="dashboard-panel incentive-panel">
+      <h2>RDM Incentive</h2>
+      <table class="dashboard-table">
+        <thead>
+          <tr>
+            <th>RDM Name</th>
+            <th>Total RDM Incentive</th>
+          </tr>
+        </thead>
+        <tbody id="rdmIncentiveTable"></tbody>
+      </table>
+    </article>
+
+    <article class="dashboard-panel zm-panel">
+      <h2>ZM Incentive</h2>
+      <table class="dashboard-table">
+        <thead>
+          <tr>
+            <th>ZM Name</th>
+            <th>Total ZM Incentive</th>
+          </tr>
+        </thead>
+        <tbody id="zmIncentiveTable"></tbody>
+      </table>
+    </article>
+  </section>
+</div>
+
+<script>
+function printPage() {
+  window.print();
+}
+
+function money(value) {
+  return `Rs ${Number(value || 0).toLocaleString("en-IN", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  })}`;
+}
+
+function number(value) {
+  return Number(value || 0).toLocaleString("en-IN");
+}
+
+function fillYears() {
+  const currentYear = new Date().getFullYear();
+  const years = [currentYear - 2, currentYear - 1, currentYear, currentYear + 1];
+  yearFilter.innerHTML = '<option value="">All Years</option>' + years.map((year) => `<option value="${year}">${year}</option>`).join("");
+}
+
+function selectedQuery() {
+  const month = monthFilter.value;
+  const year = yearFilter.value;
+  const date = dateFilter.value;
+  const params = new URLSearchParams();
+  if (month) params.set("month", month);
+  if (year) params.set("year", year);
+  if (date) params.set("date", date);
+  return params.toString() ? `?${params.toString()}` : "";
+}
+
+function applyFilter() {
+  loadDashboard(selectedQuery());
+}
+
+function resetFilter() {
+  monthFilter.value = "";
+  yearFilter.value = "";
+  dateFilter.value = "";
+  loadDashboard();
+}
+
+function rowsOrEmpty(rows, columns) {
+  if (rows && rows.length) return rows;
+  return [{ empty: true, columns }];
+}
+
+function renderEmpty(columns) {
+  return `<tr><td colspan="${columns}" class="empty-cell">No data available</td></tr>`;
+}
+
+async function loadDashboard(query = "") {
+  try {
+    const data = await apiFetch(`/api/dashboard${query}`);
+    const kpi = data.kpi || {};
+    const snapshot = data.outstandingSnapshot || {};
+
+    totalOrders.innerText = number(kpi.totalOrders);
+    pendingOrders.innerText = number(kpi.pendingOrders);
+    deliveredOrders.innerText = number(kpi.deliveredOrders);
+    totalSales.innerText = money(kpi.totalSales);
+    totalCollection.innerText = money(kpi.totalCollection);
+    outstanding.innerText = money(kpi.outstanding);
+
+    kpiTable.innerHTML = [
+      ["Total Orders", number(kpi.totalOrders)],
+      ["Pending Orders", number(kpi.pendingOrders)],
+      ["Dispatched Orders", number(kpi.dispatchedOrders)],
+      ["Partially Delivered Orders", number(kpi.partiallyDeliveredOrders)],
+      ["Delivered Orders", number(kpi.deliveredOrders)],
+      ["Total Sales", money(kpi.totalSales)],
+      ["Total Collection", money(kpi.totalCollection)],
+      ["Outstanding", money(kpi.outstanding)],
+      ["Overdue Outstanding", money(kpi.overdueOutstanding)],
+      ["Total Dealers", number(kpi.totalDealers)],
+      ["Total Products", number(kpi.totalProducts)],
+      ["Total Active Dealer", number(kpi.totalActiveDealer)],
+      ["Total Invoice Amount", money(kpi.totalInvoiceAmount)],
+      ["Total RDM Incentive", money(kpi.totalRdmIncentive)],
+      ["Total ZM Incentive", money(kpi.totalZmIncentive)],
+      ["Total Payment", money(kpi.totalPayment)],
+    ].map(([label, value]) => `
+      <tr>
+        <td>${label}</td>
+        <td class="font-bold">${value}</td>
+      </tr>
+    `).join("");
+
+    productTable.innerHTML = rowsOrEmpty(data.productWise, 3).map((p) => p.empty ? renderEmpty(p.columns) : `
+      <tr>
+        <td>${p.product_name || "-"}</td>
+        <td>${number(p.orders)}</td>
+        <td class="font-bold text-emerald-700">${money(p.sales)}</td>
+      </tr>
+    `).join("");
+
+    rdmTable.innerHTML = rowsOrEmpty(data.rdmWise, 4).map((r) => r.empty ? renderEmpty(r.columns) : `
+      <tr>
+        <td>${r.rdm_name || "-"}</td>
+        <td>${number(r.orders)}</td>
+        <td>${money(r.sales)}</td>
+        <td class="font-bold text-red-700">${money(r.outstanding)}</td>
+      </tr>
+    `).join("");
+
+    snapOrderValue.innerText = money(snapshot.totalOrderValue);
+    snapSaleBags.innerText = number(snapshot.totalSaleBags);
+    snapOverdueDealers.innerText = number(snapshot.overdueDealers);
+    snapReminderReady.innerText = number(snapshot.reminderReady);
+
+    const overdueRows = data.overdue || [];
+    overdueTable.innerHTML = rowsOrEmpty(overdueRows, 3).map((o) => o.empty ? renderEmpty(o.columns) : `
+      <tr>
+        <td>${o.dealer_name || "-"}</td>
+        <td>${money(o.total_due)}</td>
+        <td class="font-bold text-red-700">${money(o.overdue_due)}</td>
+      </tr>
+    `).join("");
+    overdueTotal.innerText = money(overdueRows.reduce((sum, row) => sum + Number(row.total_due || 0), 0));
+    overdueDueTotal.innerText = money(overdueRows.reduce((sum, row) => sum + Number(row.overdue_due || 0), 0));
+
+    rdmIncentiveTable.innerHTML = rowsOrEmpty(data.rdmIncentive, 2).map((row) => row.empty ? renderEmpty(row.columns) : `
+      <tr>
+        <td>${row.rdm_name || "-"}</td>
+        <td class="font-bold">${money(row.total_incentive)}</td>
+      </tr>
+    `).join("");
+
+    zmIncentiveTable.innerHTML = rowsOrEmpty(data.zmIncentive, 2).map((row) => row.empty ? renderEmpty(row.columns) : `
+      <tr>
+        <td>${row.zm_name || "-"}</td>
+        <td class="font-bold">${money(row.total_incentive)}</td>
+      </tr>
+    `).join("");
+  } catch (err) {
+    [productTable, rdmTable, overdueTable, rdmIncentiveTable, zmIncentiveTable].forEach((table) => {
+      table.innerHTML = renderEmpty(3);
+    });
+  }
+}
+
+fillYears();
+loadDashboard();
+setInterval(() => loadDashboard(selectedQuery()), 30000);
+</script>
+
+</body>
+</html>

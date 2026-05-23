@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dealer Ledger</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="./css/app.css">
+<script src="./js/api.js"></script>
+<script src="./js/actions.js"></script>
+<script src="./js/ui.js" defer></script>
+</head>
+
+<body class="bg-gray-100 flex flex-col overflow-x-hidden lg:flex-row">
+<div class="w-full shrink-0 bg-green-700 p-5 text-white lg:min-h-screen lg:w-64">
+  <h1 class="text-xl font-bold mb-6">Dharohar CRM</h1>
+  <ul class="space-y-2 text-sm">
+    <li><a href="dashboard.html">Dashboard</a></li>
+    <li><a href="orders.html">Orders</a></li>
+    <li><a href="payments.html">Payments</a></li>
+    <li><a href="ledger.html" class="bg-green-600 p-2 rounded">Ledger</a></li>
+  </ul>
+</div>
+
+<div class="min-w-0 flex-1 p-4 sm:p-6">
+  <div class="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <h1 class="text-2xl font-bold">Dealer Ledger</h1>
+    <button onclick="printSectionById('ledgerInvoice', 'Dealer Ledger Invoice')" class="rounded bg-blue-600 px-4 py-2 text-white">Print Invoice</button>
+  </div>
+
+  <div class="mb-6 flex flex-col gap-3 rounded-xl bg-white p-4 shadow sm:flex-row">
+    <select id="dealer" class="min-w-0 flex-1 rounded border p-2"></select>
+    <button onclick="loadLedger()" class="rounded bg-green-600 px-5 py-2 font-semibold text-white">Load Ledger</button>
+  </div>
+
+  <div class="mb-6 flex flex-col gap-3 rounded-xl bg-white p-4 shadow sm:flex-row sm:flex-wrap">
+    <select id="ledgerMonthFilter" onchange="renderFilteredLedger()" class="rounded border p-2">
+      <option value="">All Months</option>
+      <option value="01">January</option>
+      <option value="02">February</option>
+      <option value="03">March</option>
+      <option value="04">April</option>
+      <option value="05">May</option>
+      <option value="06">June</option>
+      <option value="07">July</option>
+      <option value="08">August</option>
+      <option value="09">September</option>
+      <option value="10">October</option>
+      <option value="11">November</option>
+      <option value="12">December</option>
+    </select>
+    <select id="ledgerYearFilter" onchange="renderFilteredLedger()" class="rounded border p-2">
+      <option value="">All Years</option>
+    </select>
+    <input id="ledgerDateFilter" onchange="renderFilteredLedger()" type="date" class="rounded border p-2">
+    <button onclick="resetLedgerFilter()" class="rounded bg-slate-700 px-4 py-2 text-white">Reset Filter</button>
+  </div>
+
+  <section id="ledgerInvoice" class="overflow-hidden rounded-xl bg-white p-5 shadow">
+    <div class="mb-6 border-b pb-5">
+      <div class="mb-5 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p class="text-sm font-semibold uppercase text-green-700">Phoenix Plants Lifesver Pvt. ltd.</p>
+          <h2 class="mt-1 text-2xl font-bold text-gray-900">Ledger Invoice</h2>
+          <p class="mt-1 text-sm text-gray-500">Party-wise order, payment and balance statement</p>
+        </div>
+        <div class="text-sm sm:text-right">
+          <p class="font-semibold text-gray-800">Statement Date</p>
+          <p id="statementDate" class="text-gray-600">-</p>
+          <p class="mt-2 font-semibold text-gray-800">Final Balance</p>
+          <p id="invoiceBalance" class="text-lg font-bold text-red-700">Rs 0.00</p>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <div class="rounded-lg border p-4">
+          <p class="text-xs font-semibold uppercase text-gray-500">Company Details</p>
+          <h3 class="mt-1 text-lg font-bold text-gray-900">Phoenix Plants Lifesver Pvt. ltd.</h3>
+          <p class="mt-1 text-sm text-gray-600">GST: 06AAMCP7935J1ZU</p>
+          <p class="mt-1 text-sm text-gray-600">Email: support@phoenixplantslifesaverpvtltd.com</p>
+          <p class="mt-1 text-sm text-gray-600">Web: www.phoenixplantslifesaverpvtltd.com</p>
+        </div>
+        <div class="rounded-lg border p-4 md:text-right">
+          <p class="text-xs font-semibold uppercase text-gray-500">Party Details</p>
+          <h3 id="partyName" class="mt-1 text-lg font-bold text-gray-900">Select party</h3>
+          <p id="partyMobile" class="mt-1 text-sm text-gray-600">Mobile: -</p>
+          <p id="partyAddress" class="mt-1 text-sm text-gray-600">Address: -</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2">
+      <div class="rounded-lg border p-4">
+        <p class="text-xs font-semibold uppercase text-gray-500">Total Debit</p>
+        <p id="totalDebit" class="mt-2 text-xl font-bold text-red-700">Rs 0.00</p>
+        <p class="mt-2 text-xs text-gray-500">Order invoice amount</p>
+      </div>
+      <div class="rounded-lg border p-4">
+        <p class="text-xs font-semibold uppercase text-gray-500">Total Credit</p>
+        <p id="totalCredit" class="mt-2 text-xl font-bold text-green-700">Rs 0.00</p>
+        <p class="mt-2 text-xs text-gray-500">Payments received</p>
+      </div>
+    </div>
+
+    <div class="overflow-x-auto">
+      <table class="w-full min-w-[1100px] table-fixed break-words text-xs sm:text-sm">
+        <thead class="bg-green-700 text-white">
+          <tr>
+            <th class="p-2">Date</th>
+            <th class="p-2">Type</th>
+            <th class="p-2">Ref</th>
+            <th class="p-2">Product / Mode</th>
+            <th class="p-2">Qty</th>
+            <th class="p-2">Rate</th>
+            <th class="p-2">RDM / ZM</th>
+            <th class="p-2">Dr</th>
+            <th class="p-2">Cr</th>
+            <th class="p-2">Bal</th>
+            <th class="p-2">Notes / Ref No</th>
+            <th class="p-2 no-print">Edit</th>
+          </tr>
+        </thead>
+        <tbody id="table"></tbody>
+      </table>
+    </div>
+  </section>
+</div>
+
+<div id="editModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/40 p-4">
+  <div class="w-full max-w-xl rounded-xl bg-white p-5 shadow-xl">
+    <div class="mb-4 flex items-center justify-between">
+      <h2 id="editTitle" class="text-xl font-bold">Edit Entry</h2>
+      <button onclick="closeEdit()" class="rounded bg-gray-100 px-3 py-1 text-sm">Close</button>
+    </div>
+
+    <div id="orderEditFields" class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+      <input id="editOrderDate" type="date" class="rounded border p-2">
+      <input id="editQty" type="number" placeholder="Qty" class="rounded border p-2">
+      <input id="editRate" type="number" placeholder="Rate" class="rounded border p-2">
+      <input id="editCreditDueDate" type="date" class="rounded border p-2">
+      <input id="editStatus" placeholder="Status" class="rounded border p-2">
+      <input id="editOrderNotes" placeholder="Notes" class="rounded border p-2 sm:col-span-2">
+    </div>
+
+    <div id="paymentEditFields" class="hidden grid grid-cols-1 gap-3 sm:grid-cols-2">
+      <input id="editPaymentDate" type="date" class="rounded border p-2">
+      <input id="editPaymentAmount" type="number" placeholder="Amount" class="rounded border p-2">
+      <input id="editPaymentMode" placeholder="Mode" class="rounded border p-2">
+      <input id="editReferenceNo" placeholder="Reference No" class="rounded border p-2">
+      <input id="editPaymentStatus" placeholder="Status" class="rounded border p-2">
+      <input id="editPaymentNotes" placeholder="Notes" class="rounded border p-2">
+    </div>
+
+    <div class="mt-5 flex justify-end gap-2">
+      <button onclick="closeEdit()" class="rounded bg-gray-200 px-4 py-2">Cancel</button>
+      <button onclick="saveEdit()" class="rounded bg-green-600 px-4 py-2 font-semibold text-white">Save</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let currentRows = [];
+let editingRow = null;
+let dealerList = [];
+
+function toDateInput(value) {
+  if (!value) return "";
+  const text = String(value);
+  const match = text.match(/^(\d{4}-\d{2}-\d{2})/);
+  if (match) return match[1];
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toISOString().slice(0, 10);
+}
+
+function money(value) {
+  return formatCurrency(value || 0);
+}
+
+function selectedDealerName() {
+  return dealer.options[dealer.selectedIndex]?.textContent || "-";
+}
+
+function selectedDealer() {
+  return dealerList.find((item) => String(item.id) === String(dealer.value)) || {};
+}
+
+async function loadDealers() {
+  try {
+    dealerList = await apiFetch("/api/dealers");
+    dealer.innerHTML = dealerList.map((d) => `
+      <option value="${d.id}">${d.dealer_code || `Deal${d.id}`} - ${d.dealer_name || d.name}</option>
+    `).join("");
+    renderInvoiceHeader([]);
+    if (dealer.value) {
+      await loadLedger();
+    }
+  } catch (err) {
+    dealerList = [];
+    dealer.innerHTML = "";
+  }
+}
+
+function renderInvoiceHeader(rows) {
+  const first = rows[0] || {};
+  const party = selectedDealer();
+  const totalDr = rows.reduce((sum, row) => sum + Number(row.debit || 0), 0);
+  const totalCr = rows.reduce((sum, row) => sum + Number(row.credit || 0), 0);
+  const balance = rows.length ? rows[rows.length - 1].balance : 0;
+
+  statementDate.innerText = formatDate(new Date());
+  invoiceBalance.innerText = money(balance);
+  partyName.innerText = first.dealer_name || party.dealer_name || party.name || selectedDealerName();
+  partyMobile.innerText = `Mobile: ${first.mobile || party.mobile || party.phone || "-"}`;
+  partyAddress.innerText = first.address || party.address || "Address: -";
+  totalDebit.innerText = money(totalDr);
+  totalCredit.innerText = money(totalCr);
+}
+
+function renderLedgerRows(rows) {
+  if (!rows.length) {
+    table.innerHTML = '<tr><td colspan="12" class="p-4 text-center text-gray-500">No ledger entries found.</td></tr>';
+    return;
+  }
+
+  table.innerHTML = rows.map((row) => {
+    const isPayment = row.type === "PAYMENT";
+    const productOrMode = isPayment
+      ? `${row.mode || "-"}${row.reference_no ? ` / ${row.reference_no}` : ""}`
+      : `${row.product_code || ""} ${row.product_name || "-"}`.trim();
+    const notes = isPayment
+      ? `${row.notes || "-"}${row.reference_no ? ` / Ref: ${row.reference_no}` : ""}`
+      : row.notes || "-";
+
+    return `
+      <tr class="border-b hover:bg-gray-50">
+        <td class="p-2">${formatDate(row.date)}</td>
+        <td class="p-2 font-semibold">${row.type}</td>
+        <td class="p-2">#${row.ref_id}</td>
+        <td class="p-2">${productOrMode}</td>
+        <td class="p-2">${isPayment ? "-" : row.qty || 0}</td>
+        <td class="p-2">${isPayment ? "-" : money(row.rate)}</td>
+        <td class="p-2">${row.employee_name || "-"} / ${row.zm_name || "-"}</td>
+        <td class="p-2 font-semibold text-red-700">${Number(row.debit || 0) ? money(row.debit) : "-"}</td>
+        <td class="p-2 font-semibold text-green-700">${Number(row.credit || 0) ? money(row.credit) : "-"}</td>
+        <td class="p-2 font-bold">${money(row.balance)}</td>
+        <td class="p-2">${notes}</td>
+        <td class="p-2 no-print">
+          <button onclick="openEdit('${encodeRow(row)}')" class="rounded bg-blue-600 px-3 py-1 text-xs text-white">Edit</button>
+        </td>
+      </tr>
+    `;
+  }).join("");
+}
+
+async function loadLedger() {
+  if (!dealer.value) {
+    showApiStatus("Please select party.", "info");
+    return;
+  }
+
+  try {
+    currentRows = await apiFetch(`/api/ledger/${dealer.value}`);
+    renderFilteredLedger();
+  } catch (err) {
+    currentRows = [];
+    renderInvoiceHeader([]);
+    table.innerHTML = "";
+  }
+}
+
+dealer.addEventListener("change", loadLedger);
+
+function renderFilteredLedger() {
+  const rows = filterRowsByDate(currentRows, "date", {
+    monthId: "ledgerMonthFilter",
+    yearId: "ledgerYearFilter",
+    dateId: "ledgerDateFilter",
+  });
+  renderInvoiceHeader(rows);
+  renderLedgerRows(rows);
+}
+
+function resetLedgerFilter() {
+  ledgerMonthFilter.value = "";
+  ledgerYearFilter.value = "";
+  ledgerDateFilter.value = "";
+  renderFilteredLedger();
+}
+
+function openEdit(encodedRow) {
+  editingRow = decodeRow(encodedRow);
+  const isPayment = editingRow.type === "PAYMENT";
+
+  editTitle.innerText = `${isPayment ? "Edit Payment" : "Edit Order"} #${editingRow.ref_id}`;
+  orderEditFields.classList.toggle("hidden", isPayment);
+  paymentEditFields.classList.toggle("hidden", !isPayment);
+  paymentEditFields.classList.toggle("grid", isPayment);
+
+  if (isPayment) {
+    editPaymentDate.value = toDateInput(editingRow.date);
+    editPaymentAmount.value = editingRow.credit || 0;
+    editPaymentMode.value = editingRow.mode || "";
+    editReferenceNo.value = editingRow.reference_no || "";
+    editPaymentStatus.value = editingRow.status || "";
+    editPaymentNotes.value = editingRow.notes || "";
+  } else {
+    editOrderDate.value = toDateInput(editingRow.date);
+    editQty.value = editingRow.qty || 0;
+    editRate.value = editingRow.rate || 0;
+    editCreditDueDate.value = toDateInput(editingRow.credit_due_date || editingRow.recovery_due_date);
+    editStatus.value = editingRow.status || "";
+    editOrderNotes.value = editingRow.notes || "";
+  }
+
+  editModal.classList.remove("hidden");
+  editModal.classList.add("flex");
+}
+
+function closeEdit() {
+  editModal.classList.add("hidden");
+  editModal.classList.remove("flex");
+  editingRow = null;
+}
+
+async function saveEdit() {
+  if (!editingRow) return;
+
+  const isPayment = editingRow.type === "PAYMENT";
+  const path = isPayment ? `/api/ledger/payment/${editingRow.ref_id}` : `/api/ledger/order/${editingRow.ref_id}`;
+  const payload = isPayment
+    ? {
+        date: editPaymentDate.value || null,
+        amount: editPaymentAmount.value,
+        mode: editPaymentMode.value.trim(),
+        reference_no: editReferenceNo.value.trim(),
+        status: editPaymentStatus.value.trim(),
+        notes: editPaymentNotes.value.trim(),
+      }
+    : {
+        order_date: editOrderDate.value || null,
+        qty: editQty.value,
+        rate: editRate.value,
+        credit_due_date: editCreditDueDate.value || null,
+        status: editStatus.value.trim(),
+        notes: editOrderNotes.value.trim(),
+      };
+
+  try {
+    const data = await apiFetch(path, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+
+    if (data.success) {
+      showApiStatus("Ledger entry updated successfully.", "success");
+      closeEdit();
+      await loadLedger();
+    }
+  } catch (err) {
+  }
+}
+
+loadDealers();
+fillYearOptions(ledgerYearFilter);
+</script>
+
+</body>
+</html>

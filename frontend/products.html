@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Product Master</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="./css/app.css">
+<script src="./js/api.js"></script>
+<script src="./js/actions.js"></script>
+<script src="./js/ui.js" defer></script>
+</head>
+
+<body class="bg-gray-100 flex flex-col overflow-x-hidden lg:flex-row">
+<div class="w-full shrink-0 bg-green-700 p-5 text-white lg:min-h-screen lg:w-64">
+  <h1 class="text-xl font-bold mb-6">Dharohar CRM</h1>
+  <ul class="space-y-2 text-sm">
+    <li><a href="dashboard.html">Dashboard</a></li>
+    <li><a href="orders.html">Orders</a></li>
+    <li><a href="products.html" class="bg-green-600 p-2 rounded">Products</a></li>
+    <li><a href="dealers.html">Dealers</a></li>
+  </ul>
+</div>
+
+<div class="min-w-0 flex-1 p-4 sm:p-6">
+  <div class="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <h1 class="text-2xl font-bold">Product Master</h1>
+    <button onclick="printSectionById('productSection', 'Product Master')" class="bg-blue-600 text-white px-4 py-2 rounded">Print Section</button>
+  </div>
+
+  <div class="mb-6 grid grid-cols-1 gap-4 rounded-xl bg-white p-6 shadow sm:grid-cols-2 xl:grid-cols-4" data-entry-form data-entry-title="Add Product">
+    <input id="product_code" placeholder="Product ID" class="border p-2 rounded">
+    <input id="name" placeholder="Product Name" class="border p-2 rounded">
+    <input id="category" placeholder="Category" class="border p-2 rounded">
+    <input id="unit" placeholder="Unit" class="border p-2 rounded">
+    <input id="mrp" type="number" placeholder="MRP" class="border p-2 rounded">
+    <input id="rate" type="number" placeholder="Rate" class="border p-2 rounded">
+    <input id="gst" type="number" placeholder="GST %" class="border p-2 rounded">
+    <input id="active_qty" type="number" placeholder="Active Qty" class="border p-2 rounded">
+    <input id="hsn" placeholder="HSN Code" class="border p-2 rounded">
+    <select id="active_flag" class="border p-2 rounded">
+      <option value="Y">Active(Y)</option>
+      <option value="N">Inactive(N)</option>
+    </select>
+    <button onclick="addProduct()" class="bg-green-600 text-white px-6 py-2 rounded hover:bg-green-700">Add Product</button>
+  </div>
+
+  <div id="productSection" class="overflow-hidden rounded-xl bg-white p-6 shadow">
+    <table class="w-full table-fixed break-words text-xs sm:text-sm">
+      <thead class="bg-green-700 text-white">
+        <tr>
+          <th class="p-2">Sr. No.</th>
+          <th class="p-2">Prod ID</th>
+          <th class="p-2">Prod</th>
+          <th class="p-2">Category</th>
+          <th class="p-2">Unit</th>
+          <th class="p-2">MRP</th>
+          <th class="p-2">Rate</th>
+          <th class="p-2">GST %</th>
+          <th class="p-2">Act Qty</th>
+          <th class="p-2">Active</th>
+          <th class="p-2 no-print">Action</th>
+        </tr>
+      </thead>
+      <tbody id="table"></tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+const productTable = document.getElementById("table");
+const productForm = {
+  product_code: document.getElementById("product_code"),
+  name: document.getElementById("name"),
+  category: document.getElementById("category"),
+  unit: document.getElementById("unit"),
+  mrp: document.getElementById("mrp"),
+  rate: document.getElementById("rate"),
+  gst: document.getElementById("gst"),
+  active_qty: document.getElementById("active_qty"),
+  hsn: document.getElementById("hsn"),
+  active_flag: document.getElementById("active_flag"),
+};
+
+async function loadProducts() {
+  try {
+    const data = await apiFetch("/api/products");
+    productTable.innerHTML = data.map((p, index) => `
+      <tr class="border-b">
+        <td class="p-2">${index + 1}</td>
+        <td class="p-2">${p.product_code || `Pro${p.id}`}</td>
+        <td class="p-2">${p.name ?? ""}</td>
+        <td class="p-2">${p.category ?? "-"}</td>
+        <td class="p-2">${p.unit ?? "-"}</td>
+        <td class="p-2">${p.mrp ?? 0}</td>
+        <td class="p-2">${p.rate ?? 0}</td>
+        <td class="p-2">${p.gst ?? 0}%</td>
+        <td class="p-2">${p.active_qty ?? 0}</td>
+        <td class="p-2">${p.active_flag ?? "Y"}</td>
+        <td class="p-2 no-print">${deleteButton("/api/products", p.id, "loadProducts", "product")}</td>
+      </tr>
+    `).join("");
+  } catch (err) {
+    productTable.innerHTML = "";
+  }
+}
+
+async function addProduct() {
+  const payload = {
+    product_code: productForm.product_code.value.trim(),
+    name: productForm.name.value.trim(),
+    category: productForm.category.value.trim(),
+    unit: productForm.unit.value.trim(),
+    hsn: productForm.hsn.value.trim(),
+    mrp: productForm.mrp.value || 0,
+    rate: productForm.rate.value || 0,
+    gst: productForm.gst.value || 0,
+    active_qty: productForm.active_qty.value || 0,
+    active_flag: productForm.active_flag.value
+  };
+
+  if (!payload.name || Number(payload.rate) <= 0) {
+    showApiStatus("Please fill product name and rate.", "info");
+    return;
+  }
+
+  try {
+    const data = await apiFetch("/api/products", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+    if (data.success) {
+      showApiStatus("Product added successfully.", "success");
+      Object.values(productForm).forEach((field) => {
+        if (field.tagName === "INPUT") {
+          field.value = "";
+        }
+      });
+      productForm.active_flag.value = "Y";
+      closeEntryModal();
+      loadProducts();
+    }
+  } catch (err) {
+  }
+}
+
+loadProducts();
+</script>
+</body>
+</html>

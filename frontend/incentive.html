@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Incentive Sheet</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="./css/app.css">
+<script src="./js/api.js"></script>
+<script src="./js/actions.js"></script>
+<script src="./js/ui.js" defer></script>
+</head>
+
+<body class="bg-gray-100 flex flex-col overflow-x-hidden lg:flex-row">
+<div class="w-full shrink-0 bg-green-700 p-5 text-white lg:min-h-screen lg:w-64">
+  <h1 class="text-xl font-bold mb-6">Dharohar CRM</h1>
+  <ul class="space-y-2 text-sm">
+    <li><a href="dashboard.html">Dashboard</a></li>
+    <li><a href="orders.html">Orders</a></li>
+    <li><a href="employees.html">Employees</a></li>
+    <li><a href="incentive.html" class="bg-green-600 p-2 rounded">Incentive</a></li>
+  </ul>
+</div>
+
+<div class="min-w-0 flex-1 p-4 sm:p-6">
+  <div class="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <h1 class="text-2xl font-bold">Incentive Table</h1>
+    <div class="flex flex-nowrap gap-2 overflow-x-auto pb-1">
+      <select id="monthFilter" onchange="loadIncentive()" aria-label="Month" class="border p-2 rounded">
+        <option value="">All Months</option>
+        <option value="01">January</option>
+        <option value="02">February</option>
+        <option value="03">March</option>
+        <option value="04">April</option>
+        <option value="05">May</option>
+        <option value="06">June</option>
+        <option value="07">July</option>
+        <option value="08">August</option>
+        <option value="09">September</option>
+        <option value="10">October</option>
+        <option value="11">November</option>
+        <option value="12">December</option>
+      </select>
+      <select id="yearFilter" onchange="loadIncentive()" aria-label="Year" class="border p-2 rounded">
+        <option value="">All Years</option>
+      </select>
+      <input id="dateFilter" onchange="loadIncentive()" type="date" aria-label="Date" class="border p-2 rounded">
+      <select id="incentiveRate" onchange="loadIncentive()" class="border p-2 rounded">
+        <option value="2">2% Incentive</option>
+        <option value="3">3% Incentive</option>
+        <option value="4">4% Incentive</option>
+      </select>
+      <button onclick="printSectionById('incentiveSection', 'Incentive Sheet')" class="bg-blue-600 text-white px-4 py-2 rounded">Print Section</button>
+    </div>
+  </div>
+
+  <div id="incentiveSection" class="overflow-hidden rounded-xl bg-white p-5 shadow">
+    <table class="w-full table-fixed break-words text-xs sm:text-sm">
+      <thead class="bg-green-700 text-white">
+        <tr>
+          <th class="p-2">Date</th>
+          <th class="p-2">Party</th>
+          <th class="p-2">Party Type</th>
+          <th class="p-2">RDM</th>
+          <th class="p-2">ZM</th>
+          <th class="p-2">Deduction</th>
+          <th class="p-2">Incentive %</th>
+          <th class="p-2">Incentive</th>
+        </tr>
+      </thead>
+      <tbody id="table"></tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+function fillYears() {
+  const currentYear = new Date().getFullYear();
+  const years = [currentYear - 2, currentYear - 1, currentYear, currentYear + 1];
+  yearFilter.innerHTML = '<option value="">All Years</option>' + years.map((year) => `<option value="${year}">${year}</option>`).join("");
+}
+
+function incentiveQuery() {
+  const params = new URLSearchParams({ rate: incentiveRate.value });
+  if (monthFilter.value) {
+    params.set("month", monthFilter.value);
+  }
+  if (yearFilter.value) {
+    params.set("year", yearFilter.value);
+  }
+  if (dateFilter.value) {
+    params.set("date", dateFilter.value);
+  }
+  return params.toString();
+}
+
+function dateParts(value) {
+  if (!value) return {};
+  const text = String(value);
+  const match = text.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (match) {
+    return { year: match[1], month: match[2], date: `${match[1]}-${match[2]}-${match[3]}` };
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return {};
+  const year = String(date.getFullYear());
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return {
+    year,
+    month,
+    date: `${year}-${month}-${day}`,
+  };
+}
+
+function applyMonthFilter(rows) {
+  const selectedMonth = monthFilter.value;
+  const selectedYear = yearFilter.value;
+  const selectedDate = dateFilter.value;
+  if (!selectedMonth && !selectedYear && !selectedDate) return rows;
+
+  return rows.filter((row) => {
+    const parts = dateParts(row.incentive_date);
+    return (!selectedDate || parts.date === selectedDate) &&
+      (!selectedMonth || parts.month === selectedMonth) &&
+      (!selectedYear || parts.year === selectedYear);
+  });
+}
+
+async function loadIncentive() {
+  try {
+    const data = await apiFetch(`/api/incentive?${incentiveQuery()}`);
+    const rows = applyMonthFilter(data);
+    if (!rows.length) {
+      table.innerHTML = '<tr><td colspan="8" class="p-4 text-center text-gray-500">No incentive found for selected filter.</td></tr>';
+      return;
+    }
+
+    table.innerHTML = rows.map((row) => `
+      <tr class="border-b">
+        <td class="p-2">${formatDate(row.incentive_date)}</td>
+        <td class="p-2">${row.party_name || "-"}</td>
+        <td class="p-2">${row.party_type === "NON_PACS" ? "Non-PACS" : "PACS"}</td>
+        <td class="p-2">${row.employee_name || "-"}</td>
+        <td class="p-2">${row.zm_name || "-"}</td>
+        <td class="p-2">${row.deduction_percent || 0}% / ${formatCurrency(row.deducted_amount || 0)}</td>
+        <td class="p-2">${row.incentive_percent || incentiveRate.value}%</td>
+        <td class="p-2 text-green-600 font-bold">${formatCurrency(row.incentive || 0)}</td>
+      </tr>
+    `).join("");
+  } catch (err) {
+    table.innerHTML = "";
+  }
+}
+
+fillYears();
+loadIncentive();
+</script>
+</body>
+</html>

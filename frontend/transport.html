@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Transport</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="./css/app.css">
+<script src="./js/api.js"></script>
+<script src="./js/actions.js"></script>
+<script src="./js/ui.js" defer></script>
+</head>
+
+<body class="bg-gray-100 flex flex-col overflow-x-hidden lg:flex-row">
+
+<div class="w-full shrink-0 bg-green-700 p-5 text-white lg:min-h-screen lg:w-64">
+  <h1 class="text-xl font-bold mb-6">Dharohar CRM</h1>
+  <ul class="space-y-2 text-sm">
+    <li><a href="dashboard.html">Dashboard</a></li>
+    <li><a href="dispatch.html">Dispatch</a></li>
+    <li><a href="transport.html" class="bg-green-600 p-2 rounded">Transport</a></li>
+  </ul>
+</div>
+
+<div class="min-w-0 flex-1 p-4 sm:p-6">
+  <h1 class="text-2xl font-bold mb-6">Transport Master</h1>
+
+  <div class="mb-6 grid grid-cols-1 gap-4 rounded-xl bg-white p-5 shadow sm:grid-cols-2 xl:grid-cols-4" data-entry-form data-entry-title="Add Transport">
+    <input id="transport_name" placeholder="Transport Name" class="border p-2 rounded">
+    <input id="contact_person" placeholder="Contact Person" class="border p-2 rounded">
+    <input id="mobile" placeholder="Mobile" class="border p-2 rounded">
+    <button onclick="addTransport()" class="bg-green-600 text-white rounded">Add Transport</button>
+  </div>
+
+  <div class="overflow-hidden rounded-xl bg-white p-5 shadow">
+    <table class="w-full table-fixed break-words text-xs sm:text-sm">
+      <thead class="bg-gray-200">
+        <tr>
+          <th class="p-2">Sr. No.</th>
+          <th class="p-2">Transport</th>
+          <th class="p-2">Contact</th>
+          <th class="p-2">Mobile</th>
+          <th class="p-2 no-print">Action</th>
+        </tr>
+      </thead>
+      <tbody id="table"></tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+async function loadTransport() {
+  try {
+    const data = await apiFetch("/api/transport");
+    table.innerHTML = data.map((row, index) => `
+      <tr class="border-b">
+        <td class="p-2">${index + 1}</td>
+        <td class="p-2">${row.transport_name}</td>
+        <td class="p-2">${row.contact_person}</td>
+        <td class="p-2">${row.mobile}</td>
+        <td class="p-2 no-print">${deleteButton("/api/transport", row.id, "loadTransport", "transport")}</td>
+      </tr>
+    `).join("");
+  } catch (err) {
+    table.innerHTML = "";
+  }
+}
+
+async function addTransport() {
+  const transport_name = document.getElementById("transport_name").value.trim();
+  const contact_person = document.getElementById("contact_person").value.trim();
+  const mobile = document.getElementById("mobile").value.trim();
+
+  if (!transport_name || !contact_person || !mobile) {
+    showApiStatus("Please fill all transport fields.", "info");
+    return;
+  }
+
+  try {
+    const data = await apiFetch("/api/transport", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ transport_name, contact_person, mobile })
+    });
+
+    if (data.success) {
+      showApiStatus("Transport added successfully.", "success");
+      document.getElementById("transport_name").value = "";
+      document.getElementById("contact_person").value = "";
+      document.getElementById("mobile").value = "";
+      closeEntryModal();
+      loadTransport();
+    }
+  } catch (err) {
+  }
+}
+
+loadTransport();
+</script>
+
+</body>
+</html>

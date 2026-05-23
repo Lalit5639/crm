@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dharohar CRM Login</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="./css/app.css">
+<script src="./js/ui.js" defer></script>
+<style>
+  .login-hero {
+    background:
+      linear-gradient(135deg, rgba(4, 86, 61, 0.96), rgba(22, 163, 74, 0.9)),
+      repeating-linear-gradient(125deg, rgba(255, 255, 255, 0.08) 0 1px, transparent 1px 34px);
+  }
+
+.field-lines {
+  background-image:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.11) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(255, 255, 255, 0.08) 1px, transparent 1px);
+
+  background-size: 42px 42px;
+
+  -webkit-mask-image: linear-gradient(
+    180deg,
+    transparent,
+    #000 25%,
+    #000 76%,
+    transparent
+  );
+
+  mask-image: linear-gradient(
+    180deg,
+    transparent,
+    #000 25%,
+    #000 76%,
+    transparent
+  );
+}
+
+  .brand-mark::before,
+  .brand-mark::after {
+    content: "";
+    position: absolute;
+    border-radius: 999px 999px 999px 0;
+    background: currentColor;
+    transform-origin: bottom left;
+  }
+
+  .brand-mark::before {
+    width: 18px;
+    height: 28px;
+    left: 12px;
+    top: 8px;
+    transform: rotate(-36deg);
+  }
+
+  .brand-mark::after {
+    width: 15px;
+    height: 24px;
+    right: 10px;
+    top: 12px;
+    transform: rotate(42deg) scaleX(-1);
+  }
+</style>
+</head>
+
+<body class="flex min-h-screen items-center justify-center overflow-x-hidden bg-gray-100 p-4 sm:p-6">
+
+<main class="grid w-full max-w-5xl overflow-hidden rounded-[28px] border border-white/80 bg-white shadow-[0_30px_90px_rgba(15,23,42,0.18)] md:grid-cols-[1.08fr_0.92fr]">
+
+  <!-- LEFT SIDE -->
+  <section class="login-hero relative isolate flex min-h-[420px] flex-col justify-between overflow-hidden p-8 text-white sm:p-10 lg:p-12">
+    <div class="field-lines absolute inset-0 -z-10 opacity-80"></div>
+
+    <div>
+      <div class="mb-10 inline-flex items-center gap-3 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-sm font-semibold text-emerald-50 shadow-sm backdrop-blur">
+        <span class="brand-mark relative h-10 w-10 rounded-full bg-white text-emerald-700 shadow-lg"></span>
+        <span>Dharohar CRM</span>
+      </div>
+
+      <p class="mb-4 text-sm font-bold uppercase tracking-[0.18em] text-emerald-100">Fertilizers and Chemicals</p>
+      <h1 class="max-w-md text-4xl font-black leading-tight tracking-normal text-white sm:text-5xl">
+        Dharohar Fertilizers and Chemicals
+      </h1>
+      <p class="mt-6 max-w-sm text-lg font-medium leading-8 text-emerald-50">
+        Manage orders, payments, dispatch, recovery, and daily CRM work with clarity and speed.
+      </p>
+    </div>
+
+    <div class="grid grid-cols-3 gap-3 text-sm">
+      <div class="rounded-xl border border-white/15 bg-white/10 p-4 backdrop-blur">
+        <span class="block text-2xl font-black">24/7</span>
+        <span class="mt-1 block text-emerald-50">Access</span>
+      </div>
+      <div class="rounded-xl border border-white/15 bg-white/10 p-4 backdrop-blur">
+        <span class="block text-2xl font-black">CRM</span>
+        <span class="mt-1 block text-emerald-50">Control</span>
+      </div>
+      <div class="rounded-xl border border-white/15 bg-white/10 p-4 backdrop-blur">
+        <span class="block text-2xl font-black">Fast</span>
+        <span class="mt-1 block text-emerald-50">Reports</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- RIGHT SIDE -->
+  <section class="flex flex-col justify-center bg-white p-8 sm:p-10 lg:p-12">
+    <div class="mb-8">
+      <p class="mb-2 text-sm font-bold uppercase tracking-[0.16em] text-emerald-700">Welcome back</p>
+      <h2 class="text-3xl font-black text-slate-950">Login to your account</h2>
+      <p class="mt-3 text-base leading-7 text-slate-500">Enter your credentials to continue to the CRM dashboard.</p>
+    </div>
+
+    <input id="user" type="text" placeholder="Username"
+      autocomplete="username"
+      class="mb-4 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-4 text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-100">
+
+    <input id="pass" type="password" placeholder="Password"
+      autocomplete="current-password"
+      class="mb-5 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-4 text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-100">
+
+    <button onclick="login()"
+      class="w-full rounded-xl bg-emerald-600 p-4 font-extrabold text-white shadow-[0_14px_30px_rgba(5,150,105,0.28)] transition hover:-translate-y-0.5 hover:bg-emerald-700 focus:outline-none focus:ring-4 focus:ring-emerald-100">
+      Login
+    </button>
+
+    <p id="error" class="mt-4 min-h-6 text-sm font-semibold text-red-500"></p>
+  </section>
+
+</main>
+
+<script>
+async function login(){
+  const username = document.getElementById("user").value;
+  const password = document.getElementById("pass").value;
+
+  try{
+    const res = await fetch("http://localhost:5000/api/auth/login", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ username, password })
+    });
+
+    const data = await res.json();
+
+    if(data.success){
+      window.location.href = "dashboard.html";
+    } else {
+      document.getElementById("error").innerText = "Invalid login. Please check username and password.";
+    }
+
+  } catch(err){
+    console.error(err);
+    alert("Server error. Please check backend server.");
+  }
+}
+</script>
+</body>
+</html>

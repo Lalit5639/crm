@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dispatch</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="./css/app.css">
+<script src="./js/api.js"></script>
+<script src="./js/actions.js"></script>
+<script src="./js/ui.js" defer></script>
+</head>
+
+<body class="bg-gray-100 flex flex-col overflow-x-hidden lg:flex-row">
+<div class="w-full shrink-0 bg-green-700 p-5 text-white lg:min-h-screen lg:w-64">
+  <h1 class="text-xl font-bold mb-6">Dharohar CRM</h1>
+  <ul class="space-y-2 text-sm">
+    <li><a href="dashboard.html">Dashboard</a></li>
+    <li><a href="orders.html">Orders</a></li>
+    <li><a href="dispatch.html" class="bg-green-600 p-2 rounded">Dispatch</a></li>
+  </ul>
+</div>
+
+<div class="min-w-0 flex-1 p-4 sm:p-6">
+  <div class="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <h1 class="text-2xl font-bold">Dispatch Table</h1>
+    <button onclick="printSectionById('dispatchSection', 'Dispatch Table')" class="bg-blue-600 text-white px-4 py-2 rounded">Print Section</button>
+  </div>
+
+  <div class="mb-6 grid grid-cols-1 gap-3 rounded bg-white p-5 shadow sm:grid-cols-2 xl:grid-cols-5" data-entry-form data-entry-title="Add Dispatch">
+    <select id="order" class="border p-2 rounded"></select>
+    <input id="invoice_no" placeholder="Invoice No" class="border p-2 rounded">
+    <select id="transport" class="border p-2 rounded">
+      <option value="">Select Transport</option>
+    </select>
+    <input id="vehicle" placeholder="Vehicle No" class="border p-2 rounded">
+    <input id="driver_name" placeholder="Driver Name" class="border p-2 rounded">
+    <input id="driver_phone" placeholder="Driver Phone" class="border p-2 rounded">
+    <input id="lr" placeholder="LR Number" class="border p-2 rounded">
+    <input id="eway_bill" placeholder="Eway Bill" class="border p-2 rounded">
+    <input id="dispatch_remarks" placeholder="Dispatch Remarks" class="border p-2 rounded">
+    <button onclick="addDispatch()" class="bg-green-600 text-white rounded">Dispatch</button>
+  </div>
+
+  <div class="mb-6 flex flex-col gap-3 rounded-xl bg-white p-4 shadow sm:flex-row sm:flex-wrap">
+    <select id="dispatchMonthFilter" onchange="loadDispatch()" class="rounded border p-2">
+      <option value="">All Months</option>
+      <option value="01">January</option>
+      <option value="02">February</option>
+      <option value="03">March</option>
+      <option value="04">April</option>
+      <option value="05">May</option>
+      <option value="06">June</option>
+      <option value="07">July</option>
+      <option value="08">August</option>
+      <option value="09">September</option>
+      <option value="10">October</option>
+      <option value="11">November</option>
+      <option value="12">December</option>
+    </select>
+    <select id="dispatchYearFilter" onchange="loadDispatch()" class="rounded border p-2">
+      <option value="">All Years</option>
+    </select>
+    <input id="dispatchDateFilter" onchange="loadDispatch()" type="date" class="rounded border p-2">
+    <button onclick="resetDispatchFilter()" class="rounded bg-slate-700 px-4 py-2 text-white">Reset Filter</button>
+  </div>
+
+  <div id="dispatchSection" class="overflow-hidden rounded bg-white p-5 shadow">
+    <table class="w-full table-fixed break-words text-xs sm:text-sm">
+      <thead class="bg-green-700 text-white">
+        <tr>
+          <th class="p-2">Sr. No.</th>
+          <th class="p-2">Inv No</th>
+          <th class="p-2">Ord ID</th>
+          <th class="p-2">Disp Dt</th>
+          <th class="p-2">Ord Sts</th>
+          <th class="p-2">Veh No</th>
+          <th class="p-2">Qty</th>
+          <th class="p-2">Trans</th>
+          <th class="p-2">Driver</th>
+          <th class="p-2">Drv Ph</th>
+          <th class="p-2">LR No</th>
+          <th class="p-2">Eway Bill</th>
+          <th class="p-2">Remarks</th>
+          <th class="p-2">Msg</th>
+          <th class="p-2">Dealer</th>
+          <th class="p-2">Phone</th>
+          <th class="p-2">Prod</th>
+          <th class="p-2">Prod ID</th>
+          <th class="p-2">Amt</th>
+          <th class="p-2">Ord Qty</th>
+          <th class="p-2">Pend Qty</th>
+          <th class="p-2 no-print">Action</th>
+        </tr>
+      </thead>
+      <tbody id="table"></tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+async function loadOrders() {
+  try {
+    const data = await apiFetch("/api/dispatch/orders");
+    order.innerHTML = data.map((o) => `
+      <option value="${o.id}">Order #${o.id} - ${o.dealer_name}</option>
+    `).join("");
+  } catch (err) {
+    order.innerHTML = "";
+  }
+}
+
+async function loadTransportOptions() {
+  try {
+    const data = await apiFetch("/api/transport");
+    transport.innerHTML = `
+      <option value="">Select Transport</option>
+      ${data.map((row) => `
+        <option value="${row.transport_name}">
+          ${row.transport_name}${row.mobile ? ` - ${row.mobile}` : ""}
+        </option>
+      `).join("")}
+    `;
+  } catch (err) {
+    transport.innerHTML = '<option value="">Select Transport</option>';
+  }
+}
+
+async function addDispatch() {
+  if (!order.value || !transport.value) {
+    showApiStatus("Please select order and transport.", "info");
+    return;
+  }
+
+  try {
+    const data = await apiFetch("/api/dispatch", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        order_id: order.value,
+        invoice_no: invoice_no.value.trim(),
+        transport_name: transport.value,
+        vehicle_no: vehicle.value.trim(),
+        driver_name: driver_name.value.trim(),
+        driver_phone: driver_phone.value.trim(),
+        lr_no: lr.value.trim(),
+        eway_bill: eway_bill.value.trim(),
+        dispatch_remarks: dispatch_remarks.value.trim()
+      })
+    });
+    if (data.success) {
+      showApiStatus("Dispatch saved successfully.", "success");
+      document.querySelectorAll("input").forEach((input) => input.value = "");
+      transport.value = "";
+      closeEntryModal();
+      loadDispatch();
+      loadOrders();
+    }
+  } catch (err) {
+  }
+}
+
+async function loadDispatch() {
+  try {
+    const data = filterRowsByDate(await apiFetch("/api/dispatch"), "dispatch_date", {
+      monthId: "dispatchMonthFilter",
+      yearId: "dispatchYearFilter",
+      dateId: "dispatchDateFilter",
+    });
+    table.innerHTML = data.map((d, index) => `
+      <tr class="border-b">
+        <td class="p-2">${index + 1}</td>
+        <td class="p-2">${d.invoice_no || "-"}</td>
+        <td class="p-2">${d.order_id}</td>
+        <td class="p-2">${formatDate(d.dispatch_date)}</td>
+        <td class="p-2">${d.order_status || "-"}</td>
+        <td class="p-2">${d.vehicle_no || "-"}</td>
+        <td class="p-2">${d.order_qty || 0}</td>
+        <td class="p-2">${d.transport_name || "-"}</td>
+        <td class="p-2">${d.driver_name || "-"}</td>
+        <td class="p-2">${d.driver_phone || "-"}</td>
+        <td class="p-2">${d.lr_no || "-"}</td>
+        <td class="p-2">${d.eway_bill || "-"}</td>
+        <td class="p-2">${d.dispatch_remarks || "-"}</td>
+        <td class="p-2"><button onclick="sendDispatchMsg('${encodeRow(d)}')" class="text-blue-700 underline">Send</button></td>
+        <td class="p-2">${d.dealer_name || "-"}</td>
+        <td class="p-2">${d.mobile || "-"}</td>
+        <td class="p-2">${d.product_name || "-"}</td>
+        <td class="p-2">${d.product_code || "-"}</td>
+        <td class="p-2">${formatCurrency(d.total_amount || 0)}</td>
+        <td class="p-2">${d.order_qty || 0}</td>
+        <td class="p-2">${d.pending_qty || 0}</td>
+        <td class="p-2 no-print">${deleteButton("/api/dispatch", d.id, "refreshDispatch", "dispatch")}</td>
+      </tr>
+    `).join("");
+  } catch (err) {
+    table.innerHTML = "";
+  }
+}
+
+function resetDispatchFilter() {
+  dispatchMonthFilter.value = "";
+  dispatchYearFilter.value = "";
+  dispatchDateFilter.value = "";
+  loadDispatch();
+}
+
+function sendDispatchMsg(encodedRow) {
+  const row = decodeRow(encodedRow);
+  sendWhatsAppMessage(row.mobile, `Hello ${row.dealer_name},
+
+Your order has been dispatched.
+Order ID: ${row.order_id}
+Vehicle: ${row.vehicle_no || "-"}
+LR: ${row.lr_no || "-"}
+Product: ${row.product_name || "-"}
+
+Dharohar CRM`);
+}
+
+async function refreshDispatch() {
+  await loadDispatch();
+  await loadOrders();
+}
+
+loadOrders();
+loadTransportOptions();
+fillYearOptions(dispatchYearFilter);
+loadDispatch();
+setInterval(loadOrders, 15000);
+setInterval(loadTransportOptions, 30000);
+setInterval(loadDispatch, 15000);
+</script>
+</body>
+</html>

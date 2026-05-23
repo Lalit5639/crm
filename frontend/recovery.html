@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Recovery Aging</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="./css/app.css">
+<script src="./js/api.js"></script>
+<script src="./js/actions.js"></script>
+<script src="./js/ui.js" defer></script>
+</head>
+
+<body class="bg-gray-100 flex flex-col overflow-x-hidden lg:flex-row">
+<div class="w-full shrink-0 bg-green-700 p-5 text-white lg:min-h-screen lg:w-64">
+  <h1 class="text-xl font-bold mb-6">Dharohar CRM</h1>
+  <ul class="space-y-2 text-sm">
+    <li><a href="dashboard.html">Dashboard</a></li>
+    <li><a href="orders.html">Orders</a></li>
+    <li><a href="payments.html">Payments</a></li>
+    <li><a href="recovery.html" class="bg-green-600 p-2 rounded">Recovery Aging</a></li>
+  </ul>
+</div>
+
+<div class="min-w-0 flex-1 p-4 sm:p-6">
+  <div class="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <h1 class="text-2xl font-bold">Recovery Aging Table</h1>
+    <button onclick="printSectionById('recoverySection', 'Recovery Aging Table')" class="bg-blue-600 text-white px-4 py-2 rounded">Print Section</button>
+  </div>
+
+  <div class="mb-6 flex flex-col gap-3 rounded-xl bg-white p-4 shadow sm:flex-row sm:flex-wrap">
+    <select id="recoveryMonthFilter" onchange="loadRecovery()" class="rounded border p-2">
+      <option value="">All Months</option>
+      <option value="01">January</option>
+      <option value="02">February</option>
+      <option value="03">March</option>
+      <option value="04">April</option>
+      <option value="05">May</option>
+      <option value="06">June</option>
+      <option value="07">July</option>
+      <option value="08">August</option>
+      <option value="09">September</option>
+      <option value="10">October</option>
+      <option value="11">November</option>
+      <option value="12">December</option>
+    </select>
+    <select id="recoveryYearFilter" onchange="loadRecovery()" class="rounded border p-2">
+      <option value="">All Years</option>
+    </select>
+    <input id="recoveryDateFilter" onchange="loadRecovery()" type="date" class="rounded border p-2">
+    <button onclick="resetRecoveryFilter()" class="rounded bg-slate-700 px-4 py-2 text-white">Reset Filter</button>
+  </div>
+
+  <div id="recoverySection" class="overflow-hidden rounded-xl bg-white p-5 shadow">
+    <table class="w-full table-fixed break-words text-xs sm:text-sm">
+      <thead class="bg-green-700 text-white">
+        <tr>
+          <th class="p-2">Dealer</th>
+          <th class="p-2">Phone</th>
+          <th class="p-2">Total</th>
+          <th class="p-2">Not Due</th>
+          <th class="p-2">0-30</th>
+          <th class="p-2">31-60</th>
+          <th class="p-2">61-90</th>
+          <th class="p-2">90+</th>
+          <th class="p-2">WA</th>
+          <th class="p-2">Type</th>
+          <th class="p-2">Sts</th>
+        </tr>
+      </thead>
+      <tbody id="table"></tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+function getBuckets(row) {
+  const notDue = 0;
+  const zeroSeven = Number(row["0_30"] || 0);
+  const eightFifteen = Number(row["31_60"] || 0);
+  const sixteenThirty = Number(row["61_90"] || 0);
+  const thirtyPlus = Number(row["90_plus"] || 0);
+  return { notDue, zeroSeven, eightFifteen, sixteenThirty, thirtyPlus };
+}
+
+async function loadRecovery() {
+  try {
+    const params = new URLSearchParams();
+    if (recoveryMonthFilter.value) params.set("month", recoveryMonthFilter.value);
+    if (recoveryYearFilter.value) params.set("year", recoveryYearFilter.value);
+    if (recoveryDateFilter.value) params.set("date", recoveryDateFilter.value);
+    const data = await apiFetch(`/api/recovery${params.toString() ? `?${params.toString()}` : ""}`);
+    table.innerHTML = data.map((r) => {
+      const buckets = getBuckets(r);
+      return `
+        <tr class="border-b">
+          <td class="p-2">${r.dealer_name}</td>
+          <td class="p-2">${r.mobile || "-"}</td>
+          <td class="p-2">${formatCurrency(r.total)}</td>
+          <td class="p-2">${formatCurrency(buckets.notDue)}</td>
+          <td class="p-2">${formatCurrency(buckets.zeroSeven)}</td>
+          <td class="p-2">${formatCurrency(buckets.eightFifteen)}</td>
+          <td class="p-2">${formatCurrency(buckets.sixteenThirty)}</td>
+          <td class="p-2">${formatCurrency(buckets.thirtyPlus)}</td>
+          <td class="p-2"><button onclick="sendRecoveryMsg('${encodeRow(r)}', 'normal')" class="text-blue-700 underline">Send Reminder</button></td>
+          <td class="p-2">Soft Reminder</td>
+          <td class="p-2">Not Sent</td>
+        </tr>
+      `;
+    }).join("");
+  } catch (err) {
+    table.innerHTML = "";
+  }
+}
+
+function resetRecoveryFilter() {
+  recoveryMonthFilter.value = "";
+  recoveryYearFilter.value = "";
+  recoveryDateFilter.value = "";
+  loadRecovery();
+}
+
+function sendRecoveryMsg(encodedRow, mode) {
+  const row = decodeRow(encodedRow);
+  let message = "";
+  if (mode === "normal") {
+    message = `Hello ${row.dealer_name},\n\nGentle reminder: your outstanding amount is ${formatCurrency(row.total)}.\n\nDharohar CRM`;
+  } else if (mode === "hard") {
+    message = `Hello ${row.dealer_name},\n\nUrgent reminder: please clear your outstanding amount ${formatCurrency(row.total)}.\n\nDharohar CRM`;
+  } else {
+    message = `Hello ${row.dealer_name},\n\nFinal reminder: your overdue amount is ${formatCurrency(row.total)}. Please clear immediately.\n\nDharohar CRM`;
+  }
+  sendWhatsAppMessage(row.mobile, message);
+}
+
+fillYearOptions(recoveryYearFilter);
+loadRecovery();
+</script>
+</body>
+</html>

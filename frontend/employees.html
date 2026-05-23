@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Employee Master</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="./css/app.css">
+<script src="./js/api.js"></script>
+<script src="./js/actions.js"></script>
+<script src="./js/ui.js" defer></script>
+</head>
+
+<body class="bg-gray-100 flex flex-col overflow-x-hidden lg:flex-row">
+<div class="w-full shrink-0 bg-green-700 p-5 text-white lg:min-h-screen lg:w-64">
+  <h1 class="text-xl font-bold mb-6">Dharohar CRM</h1>
+  <ul class="space-y-2 text-sm">
+    <li><a href="dashboard.html">Dashboard</a></li>
+    <li><a href="orders.html">Orders</a></li>
+    <li><a href="employees.html" class="bg-green-600 p-2 rounded">Employees</a></li>
+    <li><a href="incentive.html">Incentive</a></li>
+  </ul>
+</div>
+
+<div class="min-w-0 flex-1 p-4 sm:p-6">
+  <div class="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <h1 class="text-2xl font-bold">Employee Master</h1>
+    <button onclick="printSectionById('employeeSection', 'Employee Master')" class="bg-blue-600 text-white px-4 py-2 rounded">Print Section</button>
+  </div>
+
+  <div class="mb-6 grid grid-cols-1 gap-4 rounded-xl bg-white p-5 shadow sm:grid-cols-2 xl:grid-cols-4" data-entry-form data-entry-title="Add Employee">
+    <input id="emp_code" placeholder="Emp_ID" class="border p-2 rounded">
+    <input id="name" placeholder="Name" class="border p-2 rounded">
+    <input id="designation" placeholder="Role" class="border p-2 rounded">
+    <input id="mobile" placeholder="Phone" class="border p-2 rounded">
+    <input id="region_district" placeholder="Region/District" class="border p-2 rounded">
+    <input id="zm_name" placeholder="ZM" class="border p-2 rounded">
+    <select id="active_flag" class="border p-2 rounded">
+      <option value="Y">Active(Y)</option>
+      <option value="N">Inactive(N)</option>
+    </select>
+    <button id="addEmployeeBtn" class="bg-green-600 text-white rounded">Add Employee</button>
+  </div>
+
+  <div id="employeeSection" class="overflow-hidden rounded-xl bg-white p-5 shadow">
+    <table class="w-full table-fixed break-words text-xs sm:text-sm">
+      <thead class="bg-green-700 text-white">
+        <tr>
+          <th class="p-2">Sr. No.</th>
+          <th class="p-2">Emp ID</th>
+          <th class="p-2">Name</th>
+          <th class="p-2">Role</th>
+          <th class="p-2">Phone</th>
+          <th class="p-2">Region</th>
+          <th class="p-2">ZM</th>
+          <th class="p-2">Active</th>
+          <th class="p-2 no-print">Action</th>
+        </tr>
+      </thead>
+      <tbody id="employeeTableBody"></tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+const empCodeInput = document.getElementById("emp_code");
+const nameInput = document.getElementById("name");
+const designationInput = document.getElementById("designation");
+const mobileInput = document.getElementById("mobile");
+const regionDistrictInput = document.getElementById("region_district");
+const zmNameInput = document.getElementById("zm_name");
+const activeFlagInput = document.getElementById("active_flag");
+const employeeTableBody = document.getElementById("employeeTableBody");
+const addEmployeeBtn = document.getElementById("addEmployeeBtn");
+
+function renderEmployees(data) {
+  employeeTableBody.innerHTML = data.map((employee, index) => `
+    <tr class="border-b">
+      <td class="p-2">${index + 1}</td>
+      <td class="p-2">${employee.emp_code || `Emp${String(employee.id).padStart(3, "0")}`}</td>
+      <td class="p-2">${employee.name}</td>
+      <td class="p-2">${employee.designation}</td>
+      <td class="p-2">${employee.mobile}</td>
+      <td class="p-2">${employee.region_district || "-"}</td>
+      <td class="p-2">${employee.zm_name || "-"}</td>
+      <td class="p-2">${employee.active_flag || "Y"}</td>
+      <td class="p-2 no-print">${deleteButton("/api/employees", employee.id, "loadEmployees", "employee")}</td>
+    </tr>
+  `).join("");
+}
+
+async function loadEmployees() {
+  try {
+    const data = await apiFetch("/api/employees");
+    renderEmployees(data);
+  } catch (err) {
+    employeeTableBody.innerHTML = "";
+  }
+}
+
+function clearEmployeeForm() {
+  empCodeInput.value = "";
+  nameInput.value = "";
+  designationInput.value = "";
+  mobileInput.value = "";
+  regionDistrictInput.value = "";
+  zmNameInput.value = "";
+  activeFlagInput.value = "Y";
+}
+
+async function addEmployee() {
+  const payload = {
+    emp_code: empCodeInput.value.trim(),
+    name: nameInput.value.trim(),
+    mobile: mobileInput.value.trim(),
+    designation: designationInput.value.trim(),
+    region_district: regionDistrictInput.value.trim(),
+    zm_name: zmNameInput.value.trim(),
+    active_flag: activeFlagInput.value
+  };
+
+  if (!payload.name || !payload.mobile || !payload.designation) {
+    showApiStatus("Please fill name, phone and role.", "info");
+    return;
+  }
+
+  addEmployeeBtn.disabled = true;
+  addEmployeeBtn.textContent = "Saving...";
+
+  try {
+    const data = await apiFetch("/api/employees", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+
+    if (data.success) {
+      showApiStatus("Employee added successfully.", "success");
+      clearEmployeeForm();
+      closeEntryModal();
+      await loadEmployees();
+    }
+  } catch (err) {
+  } finally {
+    addEmployeeBtn.disabled = false;
+    addEmployeeBtn.textContent = "Add Employee";
+  }
+}
+
+addEmployeeBtn.addEventListener("click", addEmployee);
+loadEmployees();
+</script>
+</body>
+</html>

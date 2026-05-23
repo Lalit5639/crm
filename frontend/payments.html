@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Payments</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="./css/app.css">
+<script src="./js/api.js"></script>
+<script src="./js/actions.js"></script>
+<script src="./js/ui.js" defer></script>
+</head>
+
+<body class="bg-gray-100 flex flex-col overflow-x-hidden lg:flex-row">
+<div class="w-full shrink-0 bg-green-700 p-5 text-white lg:min-h-screen lg:w-64">
+  <h1 class="text-xl font-bold mb-6">Dharohar CRM</h1>
+  <ul class="space-y-2 text-sm">
+    <li><a href="dashboard.html">Dashboard</a></li>
+    <li><a href="orders.html">Orders</a></li>
+    <li><a href="payments.html" class="bg-green-600 p-2 rounded">Payments</a></li>
+  </ul>
+</div>
+
+<div class="min-w-0 flex-1 p-4 sm:p-6">
+  <div class="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <h1 class="text-2xl font-bold">Payment Table</h1>
+    <button onclick="printSectionById('paymentsSection', 'Payment Table')" class="bg-blue-600 text-white px-4 py-2 rounded">Print Section</button>
+  </div>
+
+  <div class="mb-6 grid grid-cols-1 gap-4 rounded-xl bg-white p-5 shadow sm:grid-cols-2 xl:grid-cols-6" data-entry-form data-entry-title="Add Payment">
+    <select id="order" class="p-2 border rounded"></select>
+    <input id="amount" placeholder="Amount" class="p-2 border rounded">
+    <input id="mode" placeholder="Mode" value="NEFT/RTGS" class="p-2 border rounded">
+    <input id="reference_no" placeholder="Reference No" class="p-2 border rounded">
+    <input id="notes" placeholder="Notes" class="p-2 border rounded">
+    <button onclick="addPayment()" class="bg-green-600 text-white rounded">Add Payment</button>
+  </div>
+
+  <div class="mb-6 flex flex-col gap-3 rounded-xl bg-white p-4 shadow sm:flex-row sm:flex-wrap">
+    <select id="paymentMonthFilter" onchange="loadPayments()" class="rounded border p-2">
+      <option value="">All Months</option>
+      <option value="01">January</option>
+      <option value="02">February</option>
+      <option value="03">March</option>
+      <option value="04">April</option>
+      <option value="05">May</option>
+      <option value="06">June</option>
+      <option value="07">July</option>
+      <option value="08">August</option>
+      <option value="09">September</option>
+      <option value="10">October</option>
+      <option value="11">November</option>
+      <option value="12">December</option>
+    </select>
+    <select id="paymentYearFilter" onchange="loadPayments()" class="rounded border p-2">
+      <option value="">All Years</option>
+    </select>
+    <input id="paymentDateFilter" onchange="loadPayments()" type="date" class="rounded border p-2">
+    <button onclick="resetPaymentFilter()" class="rounded bg-slate-700 px-4 py-2 text-white">Reset Filter</button>
+  </div>
+
+  <div id="paymentsSection" class="overflow-hidden rounded-xl bg-white p-5 shadow">
+    <table class="w-full table-fixed break-words text-xs sm:text-sm">
+      <thead class="bg-green-700 text-white">
+        <tr>
+          <th class="p-2">Sr. No.</th>
+          <th class="p-2">Ord ID</th>
+          <th class="p-2">Dealer</th>
+          <th class="p-2">Amt</th>
+          <th class="p-2">Mode</th>
+          <th class="p-2">Pay Dt</th>
+          <th class="p-2">Ref No</th>
+          <th class="p-2">Status</th>
+          <th class="p-2">WA</th>
+          <th class="p-2">Notes</th>
+          <th class="p-2">Inv Amt</th>
+          <th class="p-2">Bal Amt</th>
+          <th class="p-2">RDM</th>
+          <th class="p-2">ZM</th>
+          <th class="p-2 no-print">Action</th>
+        </tr>
+      </thead>
+      <tbody id="table"></tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+async function loadOrders() {
+  try {
+    const data = await apiFetch("/api/payments/orders");
+    order.innerHTML = data.length
+      ? data.map((o) => `<option value="${o.id}" data-payable="${o.payable_amount || o.outstanding || o.amount}">Order #${o.id} - ${o.dealer_name} - Payable ${formatCurrency(o.payable_amount || o.outstanding || o.amount)}</option>`).join("")
+      : `<option value="">No delivered order pending payment</option>`;
+    fillSelectedAmount();
+  } catch (err) {
+    order.innerHTML = "";
+  }
+}
+
+function fillSelectedAmount() {
+  const payable = order.options[order.selectedIndex]?.getAttribute("data-payable");
+  if (payable && !amount.value) {
+    amount.value = payable;
+  }
+}
+
+async function addPayment() {
+  if (!order.value || !amount.value) {
+    showApiStatus("Please select order and amount.", "info");
+    return;
+  }
+
+  try {
+    const data = await apiFetch("/api/payments", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        order_id: order.value,
+        amount: amount.value,
+        mode: mode.value.trim(),
+        reference_no: reference_no.value.trim(),
+        notes: notes.value.trim()
+      })
+    });
+
+    if (data.success) {
+      showApiStatus("Payment added successfully.", "success");
+      amount.value = "";
+      reference_no.value = "";
+      notes.value = "";
+      closeEntryModal();
+      await loadOrders();
+      await loadPayments();
+    }
+  } catch (err) {
+  }
+}
+
+async function loadPayments() {
+  try {
+    const data = filterRowsByDate(await apiFetch("/api/payments"), "date", {
+      monthId: "paymentMonthFilter",
+      yearId: "paymentYearFilter",
+      dateId: "paymentDateFilter",
+    });
+    table.innerHTML = data.map((p, index) => `
+      <tr class="border-b">
+        <td class="p-2">${index + 1}</td>
+        <td class="p-2">${p.order_id}</td>
+        <td class="p-2">${p.dealer_name}</td>
+        <td class="p-2">${formatCurrency(p.amount)}</td>
+        <td class="p-2">${p.mode || "-"}</td>
+        <td class="p-2">${formatDate(p.date)}</td>
+        <td class="p-2">${p.reference_no || "-"}</td>
+        <td class="p-2">${p.status || p.payment_status || "-"}</td>
+        <td class="p-2"><button onclick="sendPaymentMsg('${encodeRow(p)}')" class="text-blue-700 underline">Send</button></td>
+        <td class="p-2">${p.notes || "-"}</td>
+        <td class="p-2">${formatCurrency(p.invoice_amount || 0)}</td>
+        <td class="p-2">${formatCurrency(p.outstanding || 0)}</td>
+        <td class="p-2">${p.rdm_name || "-"}</td>
+        <td class="p-2">${p.zm_name || "-"}</td>
+        <td class="p-2 no-print">${deleteButton("/api/payments", p.id, "refreshPayments", "payment")}</td>
+      </tr>
+    `).join("");
+  } catch (err) {
+    table.innerHTML = "";
+  }
+}
+
+function resetPaymentFilter() {
+  paymentMonthFilter.value = "";
+  paymentYearFilter.value = "";
+  paymentDateFilter.value = "";
+  loadPayments();
+}
+
+function sendPaymentMsg(encodedRow) {
+  const row = decodeRow(encodedRow);
+  sendWhatsAppMessage(row.mobile, `Hello ${row.dealer_name},
+
+Payment received successfully.
+Order ID: ${row.order_id}
+Amount: ${formatCurrency(row.amount)}
+Balance: ${formatCurrency(row.outstanding)}
+
+Dharohar CRM`);
+}
+
+async function refreshPayments() {
+  await loadOrders();
+  await loadPayments();
+}
+
+order.addEventListener("change", () => {
+  amount.value = "";
+  fillSelectedAmount();
+});
+
+loadOrders();
+fillYearOptions(paymentYearFilter);
+loadPayments();
+</script>
+</body>
+</html>

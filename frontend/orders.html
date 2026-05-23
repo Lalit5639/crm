@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Orders</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="./css/app.css">
+<script src="./js/api.js"></script>
+<script src="./js/actions.js"></script>
+<script src="./js/ui.js" defer></script>
+</head>
+
+<body class="bg-gray-100 flex flex-col overflow-x-hidden lg:flex-row">
+<div class="w-full shrink-0 bg-green-700 p-5 text-white lg:min-h-screen lg:w-64">
+  <h1 class="text-xl font-bold mb-6">Dharohar CRM</h1>
+  <ul class="space-y-2 text-sm">
+    <li><a href="dashboard.html">Dashboard</a></li>
+    <li><a href="orders.html" class="bg-green-600 p-2 rounded">Orders</a></li>
+    <li><a href="payments.html">Payments</a></li>
+    <li><a href="dealers.html">Dealer</a></li>
+    <li><a href="products.html">Product</a></li>
+    <li><a href="employees.html">Employee</a></li>
+  </ul>
+</div>
+
+<div class="min-w-0 flex-1 p-4 sm:p-6">
+  <div class="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <h1 class="text-2xl font-bold">Order Table</h1>
+    <button onclick="printSectionById('ordersSection', 'Order Table')" class="bg-blue-600 text-white px-4 py-2 rounded">Print Section</button>
+  </div>
+
+  <div class="mb-6 grid grid-cols-1 gap-4 rounded-xl bg-white p-5 shadow sm:grid-cols-2 xl:grid-cols-6" data-entry-form data-entry-title="Add Order">
+    <input id="dealer_lookup" placeholder="Dealer ID / Code" class="p-2 border rounded">
+    <input id="dealer_name_view" placeholder="Dealer Name" class="p-2 border rounded bg-gray-50" readonly>
+    <input id="dealer_mobile_view" placeholder="Mobile No" class="p-2 border rounded bg-gray-50" readonly>
+    <input id="dealer_address_view" placeholder="Address" class="p-2 border rounded bg-gray-50 xl:col-span-2" readonly>
+    <select id="dealer" class="hidden"></select>
+    <select id="employee" class="p-2 border rounded"></select>
+    <select id="product" class="p-2 border rounded"></select>
+    <input id="qty" type="number" placeholder="Qty" class="p-2 border rounded">
+    <input id="rate" type="number" placeholder="Rate" class="p-2 border rounded">
+    <select id="payment_type" class="p-2 border rounded">
+      <option value="CASH">Cash</option>
+      <option value="CREDIT">Credit</option>
+    </select>
+    <input id="paid_amount" type="number" placeholder="Received Amount" class="p-2 border rounded">
+    <input id="credit_due_date" type="date" class="p-2 border rounded">
+    <input id="notes" placeholder="Notes" class="p-2 border rounded">
+    <button onclick="addOrder()" class="bg-green-600 text-white rounded">Add Order</button>
+  </div>
+
+  <div class="mb-6 flex flex-col gap-3 rounded-xl bg-white p-4 shadow sm:flex-row sm:flex-wrap">
+    <select id="orderMonthFilter" onchange="loadOrders()" class="rounded border p-2">
+      <option value="">All Months</option>
+      <option value="01">January</option>
+      <option value="02">February</option>
+      <option value="03">March</option>
+      <option value="04">April</option>
+      <option value="05">May</option>
+      <option value="06">June</option>
+      <option value="07">July</option>
+      <option value="08">August</option>
+      <option value="09">September</option>
+      <option value="10">October</option>
+      <option value="11">November</option>
+      <option value="12">December</option>
+    </select>
+    <select id="orderYearFilter" onchange="loadOrders()" class="rounded border p-2">
+      <option value="">All Years</option>
+    </select>
+    <input id="orderDateFilter" onchange="loadOrders()" type="date" class="rounded border p-2">
+    <button onclick="resetOrderFilter()" class="rounded bg-slate-700 px-4 py-2 text-white">Reset Filter</button>
+  </div>
+
+  <div id="ordersSection" class="overflow-hidden rounded-xl bg-white p-5 shadow">
+    <table class="w-full table-fixed break-words text-xs sm:text-sm">
+      <thead class="bg-green-700 text-white">
+        <tr>
+          <th class="p-2">Sr. No.</th>
+          <th class="p-2">Ord Date</th>
+          <th class="p-2">Party </th>
+          <th class="p-2">Mob. No.</th>
+          <th class="p-2">RDM </th>
+          <th class="p-2">Product </th>
+          <th class="p-2">Qty</th>
+          <th class="p-2">Rate</th>
+          <th class="p-2">Amt</th>
+          <th class="p-2">Status</th>
+          <th class="p-2">Notes</th>
+          <th class="p-2">Confirm</th>
+          <th class="p-2">Sold Qty</th>
+          <th class="p-2">Pend Qty</th>
+          <th class="p-2">O/D Days</th>
+          <th class="p-2 no-print">WA</th>
+          <th class="p-2 no-print">Action</th>
+        </tr>
+      </thead>
+      <tbody id="orderTable"></tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+let dealerList = [];
+
+async function loadDropdowns() {
+  try {
+    dealerList = await apiFetch("/api/dealers");
+    dealer.innerHTML = `<option value="">Select Dealer</option>` + dealerList.map((x) => `
+      <option value="${x.id}">${x.dealer_code || `Deal${x.id}`} - ${x.dealer_name || x.name}</option>
+    `).join("");
+
+    const employees = await apiFetch("/api/employees");
+    employee.innerHTML = `<option value="">RDM</option>` + employees.map((x) => `
+      <option value="${x.id}">${x.emp_code || `Emp${x.id}`} - ${x.name}</option>
+    `).join("");
+
+    const products = await apiFetch("/api/products");
+    product.innerHTML = products.map((x) => `
+      <option value="${x.id}" data-rate="${x.rate}">
+        ${x.product_code || `Pro${x.id}`} - ${x.name}
+      </option>
+    `).join("");
+
+    if (product.options.length) {
+      rate.value = product.options[product.selectedIndex].getAttribute("data-rate") || 0;
+    }
+  } catch (err) {
+  }
+}
+
+function normalizeDealerCode(value) {
+  return String(value || "").trim().toLowerCase();
+}
+
+function findDealerByInput(value) {
+  const lookup = normalizeDealerCode(value);
+  if (!lookup) return null;
+
+  return dealerList.find((item) => {
+    const id = normalizeDealerCode(item.id);
+    const code = normalizeDealerCode(item.dealer_code);
+    const fallbackCode = normalizeDealerCode(`Deal${item.id}`);
+    return lookup === id || lookup === code || lookup === fallbackCode;
+  });
+}
+
+function fillDealerFromId() {
+  const selectedDealer = findDealerByInput(dealer_lookup.value);
+
+  if (!selectedDealer) {
+    dealer.value = "";
+    dealer_name_view.value = "";
+    dealer_mobile_view.value = "";
+    dealer_address_view.value = "";
+    if (dealer_lookup.value.trim()) {
+      showApiStatus("Dealer ID not found in Dealer Master.", "info");
+    }
+    return;
+  }
+
+  dealer.value = selectedDealer.id;
+  dealer_name_view.value = selectedDealer.dealer_name || selectedDealer.name || "";
+  dealer_mobile_view.value = selectedDealer.phone || selectedDealer.mobile || "";
+  dealer_address_view.value = selectedDealer.address || "";
+  clearApiStatus();
+}
+
+dealer_lookup.addEventListener("input", fillDealerFromId);
+
+product.onchange = function() {
+  rate.value = product.options[product.selectedIndex]?.getAttribute("data-rate") || 0;
+};
+
+async function addOrder() {
+  fillDealerFromId();
+
+  const payload = {
+    dealer_id: dealer.value,
+    employee_id: employee.value || null,
+    product_id: product.value,
+    qty: qty.value,
+    rate: rate.value,
+    payment_type: payment_type.value,
+    paid_amount: paid_amount.value || 0,
+    credit_due_date: credit_due_date.value || null,
+    notes: notes.value.trim(),
+    confirmation_message: "Not Sent"
+  };
+
+  if (!payload.dealer_id || !payload.product_id || !payload.qty || !payload.rate) {
+    showApiStatus("Please fill dealer, product, qty and rate.", "info");
+    return;
+  }
+
+  try {
+    const data = await apiFetch("/api/orders", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+    if (data.success) {
+      showApiStatus("Order added successfully.", "success");
+      dealer_lookup.value = "";
+      dealer.value = "";
+      dealer_name_view.value = "";
+      dealer_mobile_view.value = "";
+      dealer_address_view.value = "";
+      qty.value = "";
+      paid_amount.value = "";
+      credit_due_date.value = "";
+      notes.value = "";
+      closeEntryModal();
+      await loadOrders();
+    }
+  } catch (err) {
+  }
+}
+
+async function loadOrders() {
+  try {
+    const data = filterRowsByDate(await apiFetch("/api/orders"), "order_date", {
+      monthId: "orderMonthFilter",
+      yearId: "orderYearFilter",
+      dateId: "orderDateFilter",
+    });
+    orderTable.innerHTML = data.map((o, index) => `
+      <tr class="border-b hover:bg-gray-50">
+        <td class="p-2">${index + 1}</td>
+        <td class="p-2">${formatDate(o.order_date)}</td>
+        <td class="p-2">${o.dealer_name || "-"}</td>
+        <td class="p-2">${o.mobile || "-"}</td>
+        <td class="p-2">${o.employee_name || "-"}</td>
+        <td class="p-2">${o.product_name || "-"}</td>
+        <td class="p-2">${o.qty}</td>
+        <td class="p-2">${o.rate}</td>
+        <td class="p-2">${formatCurrency(o.amount)}</td>
+        <td class="p-2">${o.status || "-"}</td>
+        <td class="p-2">${o.notes || "-"}</td>
+        <td class="p-2">${o.confirmation_message || "Not Sent"}</td>
+        <td class="p-2">${o.delivered_qty ?? 0}</td>
+        <td class="p-2">${o.pending_qty ?? o.qty}</td>
+        <td class="p-2">${o.recovery_due_date ? Math.max(Math.ceil((Date.now() - new Date(o.recovery_due_date).getTime()) / 86400000), 0) : 0}</td>
+        <td class="p-2 no-print"><button onclick="sendOrderMsg('${encodeRow(o)}')" class="bg-green-600 text-white px-2 py-1 rounded text-xs">Send</button></td>
+        <td class="p-2 no-print">${deleteButton("/api/orders", o.id, "loadOrders", "order")}</td>
+      </tr>
+    `).join("");
+  } catch (err) {
+    orderTable.innerHTML = "";
+  }
+}
+
+function resetOrderFilter() {
+  orderMonthFilter.value = "";
+  orderYearFilter.value = "";
+  orderDateFilter.value = "";
+  loadOrders();
+}
+
+function sendOrderMsg(encodedRow) {
+  const row = decodeRow(encodedRow);
+  const message = `Hello ${row.dealer_name},
+
+Your order has been received.
+Order ID: ${row.id}
+Product: ${row.product_name}
+Qty: ${row.qty}
+Amount: ${formatCurrency(row.amount)}
+
+Dharohar CRM`;
+  sendWhatsAppMessage(row.mobile, message);
+}
+
+loadDropdowns();
+fillYearOptions(orderYearFilter);
+loadOrders();
+setInterval(loadOrders, 15000);
+</script>
+</body>
+</html>
