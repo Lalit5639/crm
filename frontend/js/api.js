@@ -62,10 +62,14 @@ function clearApiStatus() {
 
 function buildApiErrorMessage(error) {
   if (error && error.name === "TypeError") {
-    return `Backend server is not reachable at ${API_BASE_URL}. Please check Render service and database settings.`;
+    return `Backend is not reachable at ${API_BASE_URL}. Open ${API_BASE_URL}/api/status. If it shows 404, Render is not running this backend service.`;
   }
 
   if (error && error.message) {
+    if (error.message.includes("status 404")) {
+      return `Backend URL ${API_BASE_URL} is reachable but API routes are missing. Render is likely deployed as a Static Site or from the wrong root.`;
+    }
+
     return error.message;
   }
 

@@ -72,6 +72,10 @@ app.get("/api/status", (req, res) => {
   });
 });
 
+app.get("/health", (req, res) => {
+  res.status(200).json({ success: true, status: "ok" });
+});
+
 app.get("/api", (req, res) => {
   res.send(`
     <!DOCTYPE html>
