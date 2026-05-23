@@ -35,7 +35,12 @@ function loadEnv() {
 
 loadEnv();
 
-const config = {
+const config = process.env.DATABASE_URL ? {
+  uri: process.env.DATABASE_URL,
+  waitForConnections: true,
+  connectionLimit: Number(process.env.DB_CONNECTION_LIMIT || 10),
+  queueLimit: 0,
+} : {
   host: process.env.DB_HOST || "localhost",
   user: process.env.DB_USER || "root",
   password: process.env.DB_PASSWORD || "",
@@ -46,6 +51,10 @@ const config = {
   queueLimit: 0,
 };
 
+if (process.env.DB_SSL === "true") {
+  config.ssl = { rejectUnauthorized: false };
+}
+
 const db = mysql.createPool(config);
 
 db.getConnection((err, connection) => {
@@ -55,7 +64,11 @@ db.getConnection((err, connection) => {
     return;
   }
 
-  console.log(`MySQL connected: ${config.user}@${config.host}:${config.port}/${config.database}`);
+  const target = process.env.DATABASE_URL
+    ? "DATABASE_URL"
+    : `${config.user}@${config.host}:${config.port}/${config.database}`;
+
+  console.log(`MySQL connected: ${target}`);
   connection.release();
 });
 

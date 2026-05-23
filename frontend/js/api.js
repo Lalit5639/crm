@@ -1,17 +1,27 @@
-const RENDER_API_BASE_URL = "https://dharohar-crm.onrender.com";
+const RENDER_API_BASE_URL = "https://crm-69o4.onrender.com";
+const API_STORAGE_KEY = "API_BASE_URL";
 
 function getApiBaseUrl() {
   const params = new URLSearchParams(window.location.search);
   const apiFromUrl = params.get("api");
 
   if (apiFromUrl) {
-    localStorage.setItem("API_BASE_URL", apiFromUrl.replace(/\/$/, ""));
+    localStorage.setItem(API_STORAGE_KEY, apiFromUrl.replace(/\/$/, ""));
   }
 
-  const savedApiUrl = localStorage.getItem("API_BASE_URL");
+  if (window.location.hostname.endsWith(".onrender.com")) {
+    localStorage.removeItem(API_STORAGE_KEY);
+    return window.location.origin;
+  }
 
-  if (savedApiUrl) {
+  const savedApiUrl = localStorage.getItem(API_STORAGE_KEY);
+
+  if (savedApiUrl && savedApiUrl !== "https://dharohar-crm.onrender.com") {
     return savedApiUrl.replace(/\/$/, "");
+  }
+
+  if (savedApiUrl === "https://dharohar-crm.onrender.com") {
+    localStorage.removeItem(API_STORAGE_KEY);
   }
 
   if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") {
