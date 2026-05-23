@@ -3,9 +3,26 @@ const cors = require("cors");
 const path = require("path");
 
 const app = express();
-const port = 5000;
+const PORT = process.env.PORT || 5000;
 
-app.use(cors());
+const allowedOrigins = [
+  "http://localhost:3000",
+  "http://localhost:5000",
+  "http://127.0.0.1:5500",
+  "https://lalit5639.github.io",
+  process.env.FRONTEND_URL,
+].filter(Boolean);
+
+app.use(cors({
+  origin(origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+      return;
+    }
+
+    callback(new Error(`CORS blocked request from ${origin}`));
+  },
+}));
 app.use(express.json());
 app.use("/frontend", express.static(path.join(__dirname, "..", "frontend")));
 
@@ -26,7 +43,7 @@ try {
   app.use("/api/employees", require("./routes/employees"));
   app.use("/api/incentive", require("./routes/incentive"));
   app.use("/api/transport", require("./routes/transport"));
-  app.use("/uploads", express.static("uploads"));
+  app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 } catch (err) {
   console.error("ROUTE ERROR:", err);
 }
@@ -35,7 +52,7 @@ app.get("/api/status", (req, res) => {
   res.json({
     success: true,
     message: "Phoenix CRM API is running",
-    baseUrl: `http://localhost:${port}`,
+    baseUrl: `${req.protocol}://${req.get("host")}`,
     endpoints: [
       "/api/auth",
       "/api/dashboard",
@@ -115,7 +132,7 @@ app.get("/api", (req, res) => {
       <div class="card">
         <div class="badge">API Running</div>
         <h1>Phoenix CRM API</h1>
-        <p>Your backend server is working on <code>http://localhost:${port}</code>.</p>
+        <p>Your backend server is working on <code>${req.protocol}://${req.get("host")}</code>.</p>
         <div class="row">
           <strong>API status JSON:</strong>
           <a href="/api/status">/api/status</a>
@@ -147,6 +164,6 @@ app.get("/", (req, res) => {
   res.redirect("/frontend/login.html");
 });
 
-app.listen(PORT, '0.0.0.0', () => {
+app.listen(PORT, "0.0.0.0", () => {
   console.log(`Server running on port ${PORT}`);
 });

@@ -1,4 +1,31 @@
-const API_BASE_URL = "http://localhost:5000";
+const RENDER_API_BASE_URL = "https://dharohar-crm.onrender.com";
+
+function getApiBaseUrl() {
+  const params = new URLSearchParams(window.location.search);
+  const apiFromUrl = params.get("api");
+
+  if (apiFromUrl) {
+    localStorage.setItem("API_BASE_URL", apiFromUrl.replace(/\/$/, ""));
+  }
+
+  const savedApiUrl = localStorage.getItem("API_BASE_URL");
+
+  if (savedApiUrl) {
+    return savedApiUrl.replace(/\/$/, "");
+  }
+
+  if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") {
+    return "http://localhost:5000";
+  }
+
+  return RENDER_API_BASE_URL;
+}
+
+const API_BASE_URL = getApiBaseUrl();
+
+function apiUrl(path) {
+  return `${API_BASE_URL}${path}`;
+}
 
 function ensureStatusBanner() {
   let banner = document.getElementById("apiStatus");
@@ -35,7 +62,7 @@ function clearApiStatus() {
 
 function buildApiErrorMessage(error) {
   if (error && error.name === "TypeError") {
-    return "Backend server is not running on http://localhost:5000. Start it with: npm start";
+    return `Backend server is not reachable at ${API_BASE_URL}. Please check Render service and database settings.`;
   }
 
   if (error && error.message) {
@@ -47,7 +74,7 @@ function buildApiErrorMessage(error) {
 
 async function apiFetch(path, options = {}) {
   try {
-    const response = await fetch(`${API_BASE_URL}${path}`, options);
+    const response = await fetch(apiUrl(path), options);
 
     let payload = null;
     const contentType = response.headers.get("content-type") || "";

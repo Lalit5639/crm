@@ -173,7 +173,7 @@ async function loadData() {
         <td class="p-2">${d.received_by || "-"}</td>
         <td class="p-2">${d.receiver_phone || "-"}</td>
         <td class="p-2">${d.condition_status || "-"}</td>
-        <td class="p-2">${d.proof_link || d.image ? `<a class="text-blue-700 underline" href="${d.proof_link || `http://localhost:5000/uploads/${d.image}`}" target="_blank">${d.proof_link || d.image}</a>` : "-"}</td>
+        <td class="p-2">${d.proof_link || d.image ? `<a class="text-blue-700 underline" href="${d.proof_link || apiUrl(`/uploads/${d.image}`)}" target="_blank">${d.proof_link || d.image}</a>` : "-"}</td>
         <td class="p-2">${d.employee_ref || "-"}</td>
         <td class="p-2"><button onclick="sendDeliveryMsg('${encodeRow(d)}')" class="text-blue-700 underline">Send MSG</button></td>
         <td class="p-2">${d.order_qty || 0}</td>

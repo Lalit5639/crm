@@ -6,6 +6,7 @@
 <title>Dharohar CRM Login</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <link rel="stylesheet" href="./css/app.css">
+<script src="./js/api.js"></script>
 <script src="./js/ui.js" defer></script>
 <style>
   .login-hero {
@@ -134,9 +135,12 @@
 async function login(){
   const username = document.getElementById("user").value;
   const password = document.getElementById("pass").value;
+  const error = document.getElementById("error");
 
   try{
-    const res = await fetch("http://localhost:5000/api/auth/login", {
+    error.innerText = "";
+
+    const data = await apiFetch("/api/auth/login", {
       method: "POST",
       headers: {
         "Content-Type": "application/json"
@@ -144,17 +148,15 @@ async function login(){
       body: JSON.stringify({ username, password })
     });
 
-    const data = await res.json();
-
     if(data.success){
       window.location.href = "dashboard.html";
     } else {
-      document.getElementById("error").innerText = "Invalid login. Please check username and password.";
+      error.innerText = "Invalid login. Please check username and password.";
     }
 
   } catch(err){
     console.error(err);
-    alert("Server error. Please check backend server.");
+    error.innerText = err.message || "Server error. Please check backend server.";
   }
 }
 </script>
