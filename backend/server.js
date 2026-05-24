@@ -10,12 +10,22 @@ const allowedOrigins = [
   "http://localhost:5000",
   "http://127.0.0.1:5500",
   "https://lalit5639.github.io",
+  "https://crm-69o4.onrender.com",
   process.env.FRONTEND_URL,
+  process.env.RENDER_EXTERNAL_URL,
 ].filter(Boolean);
 
 app.use(cors({
   origin(origin, callback) {
-    if (!origin || allowedOrigins.includes(origin)) {
+    let isRenderPreview = false;
+
+    try {
+      isRenderPreview = origin && /\.onrender\.com$/.test(new URL(origin).hostname);
+    } catch (err) {
+      isRenderPreview = false;
+    }
+
+    if (!origin || allowedOrigins.includes(origin) || isRenderPreview) {
       callback(null, true);
       return;
     }
@@ -166,6 +176,21 @@ app.get("/api", (req, res) => {
 
 app.get("/", (req, res) => {
   res.redirect("/frontend/login.html");
+});
+
+app.use((err, req, res, next) => {
+  console.error("SERVER ERROR:", err);
+
+  if (res.headersSent) {
+    next(err);
+    return;
+  }
+
+  const status = err.status || err.statusCode || 500;
+  res.status(status).json({
+    success: false,
+    message: status === 500 ? "Internal server error" : err.message,
+  });
 });
 
 app.listen(PORT, "0.0.0.0", () => {

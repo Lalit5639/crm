@@ -86,6 +86,26 @@ function buildApiErrorMessage(error) {
   return "Something went wrong while talking to the API.";
 }
 
+function messageFromTextResponse(text, status) {
+  const trimmedText = text.trim();
+
+  if (!trimmedText) {
+    return `Request failed with status ${status}`;
+  }
+
+  if (/<!doctype html|<html/i.test(trimmedText)) {
+    const parser = new DOMParser();
+    const document = parser.parseFromString(trimmedText, "text/html");
+    const serverMessage = document.querySelector("pre")?.textContent || document.title;
+
+    return serverMessage
+      ? `Server error: ${serverMessage}`
+      : `Server returned an HTML error page with status ${status}`;
+  }
+
+  return trimmedText;
+}
+
 async function apiFetch(path, options = {}) {
   try {
     const response = await fetch(apiUrl(path), options);
@@ -97,7 +117,7 @@ async function apiFetch(path, options = {}) {
       payload = await response.json();
     } else {
       const text = await response.text();
-      payload = text ? { message: text } : null;
+      payload = text ? { message: messageFromTextResponse(text, response.status) } : null;
     }
 
     if (!response.ok) {
