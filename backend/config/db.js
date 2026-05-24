@@ -49,6 +49,7 @@ const config = process.env.DATABASE_URL ? {
   waitForConnections: true,
   connectionLimit: Number(process.env.DB_CONNECTION_LIMIT || 10),
   queueLimit: 0,
+  multipleStatements: true,
 };
 
 if (process.env.DB_SSL === "true") {

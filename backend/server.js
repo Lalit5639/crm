@@ -1,6 +1,7 @@
 const express = require("express");
 const cors = require("cors");
 const path = require("path");
+const { initializeDatabase, inspectDatabase } = require("./utils/database");
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -80,6 +81,11 @@ app.get("/api/status", (req, res) => {
       "/api/ledger/:dealer_id"
     ]
   });
+});
+
+app.get("/api/db/status", async (req, res) => {
+  const status = await inspectDatabase();
+  res.status(status.success ? 200 : 500).json(status);
 });
 
 app.get("/health", (req, res) => {
@@ -193,6 +199,17 @@ app.use((err, req, res, next) => {
   });
 });
 
-app.listen(PORT, "0.0.0.0", () => {
-  console.log(`Server running on port ${PORT}`);
-});
+async function startServer() {
+  try {
+    await initializeDatabase();
+    console.log("Database schema ready");
+  } catch (err) {
+    console.error("Database initialization failed:", err.message);
+  }
+
+  app.listen(PORT, "0.0.0.0", () => {
+    console.log(`Server running on port ${PORT}`);
+  });
+}
+
+startServer();
