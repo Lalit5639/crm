@@ -39,9 +39,10 @@ function getPublicDbConfig() {
 
   if (config.uri) {
     return {
-      mode: "DATABASE_URL",
+      mode: db.dialect === "postgres" ? "NEON_POSTGRES" : "DATABASE_URL",
       hasDatabaseUrl: true,
-      ssl: Boolean(config.ssl),
+      dialect: db.dialect,
+      ssl: db.dialect === "postgres" ? process.env.DB_SSL !== "false" : Boolean(config.ssl),
     };
   }
 
@@ -51,6 +52,7 @@ function getPublicDbConfig() {
     port: config.port,
     database: config.database,
     user: config.user,
+    dialect: db.dialect,
     ssl: Boolean(config.ssl),
   };
 }
@@ -85,7 +87,7 @@ function queryConnection(connection, sql, params = []) {
 }
 
 async function ensureDatabaseExists() {
-  if (process.env.DATABASE_URL) {
+  if (process.env.DATABASE_URL || db.dialect === "postgres") {
     return;
   }
 
@@ -101,10 +103,24 @@ async function ensureDatabaseExists() {
 async function initializeDatabase() {
   await ensureDatabaseExists();
 
-  const schemaPath = path.join(__dirname, "..", "..", "database", "schema.sql");
+  const schemaFile = db.dialect === "postgres" ? "schema.postgres.sql" : "schema.sql";
+  const schemaPath = path.join(__dirname, "..", "..", "database", schemaFile);
   const schema = fs.readFileSync(schemaPath, "utf8");
 
   await db.promise().query(schema);
+}
+
+async function tableExists(tableName) {
+  if (db.dialect === "postgres") {
+    const [rows] = await db.promise().query(
+      "SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = ? LIMIT 1",
+      [tableName]
+    );
+    return rows.length > 0;
+  }
+
+  const [rows] = await db.promise().query(`SHOW TABLES LIKE ?`, [tableName]);
+  return rows.length > 0;
 }
 
 async function inspectDatabase() {
@@ -112,8 +128,8 @@ async function inspectDatabase() {
 
   try {
     const [pingRows] = await db.promise().query("SELECT 1 AS ok");
-    const [userTables] = await db.promise().query("SHOW TABLES LIKE 'users'");
-    const [adminRows] = userTables.length
+    const hasUsersTable = await tableExists("users");
+    const [adminRows] = hasUsersTable
       ? await db.promise().query("SELECT COUNT(*) AS total FROM users WHERE username = 'admin'")
       : [[{ total: 0 }]];
 
@@ -121,7 +137,7 @@ async function inspectDatabase() {
       success: true,
       database: info,
       connection: pingRows[0]?.ok === 1 ? "ok" : "unknown",
-      usersTable: userTables.length > 0,
+      usersTable: hasUsersTable,
       adminUser: Number(adminRows[0]?.total || 0) > 0,
     };
   } catch (err) {

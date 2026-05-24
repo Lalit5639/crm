@@ -99,17 +99,18 @@ router.get("/", async (req, res) => {
 
     const productCountSql = "SELECT COUNT(*) AS totalProducts FROM products";
     const activeDealerSql = "SELECT COUNT(*) AS totalActiveDealer FROM dealers WHERE COALESCE(active_flag, 'Y') = 'Y'";
+    const incentiveTotalExpression = "ROUND(COALESCE(SUM(o.amount - (o.amount * CASE WHEN COALESCE(d.party_type, 'PACS') = 'NON_PACS' THEN 0.125 ELSE 0.225 END)), 0) * 0.02, 2)";
 
     const rdmIncentiveSql = `
       SELECT
         COALESCE(e.name, 'Unassigned') AS rdm_name,
-        ROUND(COALESCE(SUM(o.amount - (o.amount * CASE WHEN COALESCE(d.party_type, 'PACS') = 'NON_PACS' THEN 0.125 ELSE 0.225 END)), 0) * 0.02, 2) AS total_incentive
+        ${incentiveTotalExpression} AS total_incentive
       FROM orders o
       LEFT JOIN employees e ON o.employee_id = e.id
       LEFT JOIN dealers d ON o.dealer_id = d.id
       ${filter.clause}
       GROUP BY COALESCE(e.name, 'Unassigned')
-      HAVING total_incentive > 0
+      HAVING ${incentiveTotalExpression} > 0
       ORDER BY total_incentive DESC
       LIMIT 10
     `;
@@ -117,13 +118,13 @@ router.get("/", async (req, res) => {
     const zmIncentiveSql = `
       SELECT
         COALESCE(e.zm_name, 'Unassigned') AS zm_name,
-        ROUND(COALESCE(SUM(o.amount - (o.amount * CASE WHEN COALESCE(d.party_type, 'PACS') = 'NON_PACS' THEN 0.125 ELSE 0.225 END)), 0) * 0.02, 2) AS total_incentive
+        ${incentiveTotalExpression} AS total_incentive
       FROM orders o
       LEFT JOIN employees e ON o.employee_id = e.id
       LEFT JOIN dealers d ON o.dealer_id = d.id
       ${filter.clause}
       GROUP BY COALESCE(e.zm_name, 'Unassigned')
-      HAVING total_incentive > 0
+      HAVING ${incentiveTotalExpression} > 0
       ORDER BY total_incentive DESC
       LIMIT 10
     `;

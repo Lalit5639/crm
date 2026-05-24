@@ -35,6 +35,15 @@ function buildOrderFilter(month, year, date) {
 router.get("/", async (req, res) => {
   const incentiveRate = resolveIncentiveRate(req.query.rate);
   const filter = buildOrderFilter(req.query.month, req.query.year, req.query.date);
+  const incentiveExpression = `
+    ROUND(
+      (
+        COALESCE(SUM(o.amount), 0) -
+        COALESCE(SUM(o.amount), 0) * (CASE WHEN COALESCE(d.party_type, 'PACS') = 'NON_PACS' THEN 0.125 ELSE 0.225 END)
+      ) * (? / 100),
+      2
+    )
+  `;
 
   try {
     await ensureTableColumn("dealers", "party_type", "VARCHAR(20) NOT NULL DEFAULT 'PACS'");
@@ -45,7 +54,7 @@ router.get("/", async (req, res) => {
         DATE(o.order_date) AS incentive_date,
         d.${dealerNameColumn} AS party_name,
         COALESCE(d.party_type, 'PACS') AS party_type,
-        COALESCE(e.emp_code, CONCAT('Emp', LPAD(e.id, 3, '0'))) AS employee_code,
+        COALESCE(e.emp_code, CONCAT('Emp', LPAD(CONCAT('', e.id), 3, '0'))) AS employee_code,
         e.name AS employee_name,
         e.designation,
         e.zm_name,
@@ -54,13 +63,7 @@ router.get("/", async (req, res) => {
         CASE WHEN COALESCE(d.party_type, 'PACS') = 'NON_PACS' THEN 12.5 ELSE 22.5 END AS deduction_percent,
         ROUND(COALESCE(SUM(o.amount), 0) * (CASE WHEN COALESCE(d.party_type, 'PACS') = 'NON_PACS' THEN 0.125 ELSE 0.225 END), 2) AS deducted_amount,
         ? AS incentive_percent,
-        ROUND(
-          (
-            COALESCE(SUM(o.amount), 0) -
-            COALESCE(SUM(o.amount), 0) * (CASE WHEN COALESCE(d.party_type, 'PACS') = 'NON_PACS' THEN 0.125 ELSE 0.225 END)
-          ) * (? / 100),
-          2
-        ) AS incentive
+        ${incentiveExpression} AS incentive
       FROM orders o
       LEFT JOIN employees e ON o.employee_id = e.id
       LEFT JOIN dealers d ON o.dealer_id = d.id
@@ -74,10 +77,11 @@ router.get("/", async (req, res) => {
         e.name,
         e.designation,
         e.zm_name
+      HAVING ${incentiveExpression} > 0
       ORDER BY incentive_date ASC, incentive ASC, e.name ASC
     `;
 
-    const result = await query(sql, [incentiveRate, incentiveRate, ...filter.params]);
+    const result = await query(sql, [incentiveRate, incentiveRate, ...filter.params, incentiveRate]);
     res.json(result);
   } catch (err) {
     res.status(500).json(err);

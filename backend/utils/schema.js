@@ -19,8 +19,13 @@ async function getTableColumns(tableName) {
     return columnCache.get(tableName);
   }
 
-  const rows = await query("SHOW COLUMNS FROM ??", [tableName]);
-  const columns = rows.map((row) => row.Field);
+  const rows = db.dialect === "postgres"
+    ? await query(
+      "SELECT column_name AS field FROM information_schema.columns WHERE table_schema = 'public' AND table_name = ? ORDER BY ordinal_position",
+      [tableName]
+    )
+    : await query("SHOW COLUMNS FROM ??", [tableName]);
+  const columns = rows.map((row) => row.Field || row.field || row.column_name);
   columnCache.set(tableName, columns);
   return columns;
 }
@@ -32,7 +37,10 @@ async function ensureTableColumn(tableName, columnName, columnDefinition) {
     return columns;
   }
 
-  await query(`ALTER TABLE ?? ADD COLUMN ${columnName} ${columnDefinition}`, [tableName]);
+  await query(
+    `ALTER TABLE ?? ADD COLUMN ${db.escapeId ? db.escapeId(columnName) : columnName} ${columnDefinition}`,
+    [tableName]
+  );
   const nextColumns = [...columns, columnName];
   columnCache.set(tableName, nextColumns);
   return nextColumns;
