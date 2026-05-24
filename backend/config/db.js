@@ -3,6 +3,10 @@ const path = require("path");
 const mysql = require("mysql2");
 
 function loadEnv() {
+  if (process.env.NODE_ENV === "production") {
+    return;
+  }
+
   const envPath = path.join(__dirname, "..", "..", ".env");
 
   if (!fs.existsSync(envPath)) {
