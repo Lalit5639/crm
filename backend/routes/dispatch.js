@@ -70,6 +70,7 @@ router.post("/", async (req, res) => {
     order_id,
     invoice_no,
     transport_name,
+    dispatch_date,
     vehicle_no,
     driver_name,
     driver_phone,
@@ -85,7 +86,7 @@ router.post("/", async (req, res) => {
   try {
     const columns = await getTableColumns("dispatch");
     const insertColumns = ["order_id", "transport_name", "dispatch_date"];
-    const values = [order_id, transport_name, new Date()];
+    const values = [order_id, transport_name, dispatch_date || new Date()];
 
     [
       ["invoice_no", invoice_no || null],

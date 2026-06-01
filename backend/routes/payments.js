@@ -97,7 +97,8 @@ router.get("/orders", async (req, res) => {
 });
 
 router.post("/", async (req, res) => {
-  let { order_id, amount, mode, reference_no, status, notes } = req.body;
+  let { order_id, amount, mode, reference_no, status, notes, date, payment_date } = req.body;
+  date = date || payment_date;
   amount = Number(amount);
 
   if (!order_id || !amount) {
@@ -143,8 +144,7 @@ router.post("/", async (req, res) => {
     try {
       const columns = await getTableColumns("payments");
       const insertColumns = ["order_id", "amount", "date"];
-      const values = [order_id, amount, new Date()];
-
+    const values = [order_id, amount, date || new Date()];
       [
         ["mode", mode || "NEFT/RTGS"],
         ["reference_no", reference_no || null],

@@ -36,6 +36,7 @@
     <input id="dealer_mobile_view" placeholder="Mobile No" class="p-2 border rounded bg-gray-50" readonly>
     <input id="dealer_address_view" placeholder="Address" class="p-2 border rounded bg-gray-50 xl:col-span-2" readonly>
     <select id="dealer" class="hidden"></select>
+    <input id="order_date" type="date" placeholder="Order Date" class="p-2 border rounded">
     <select id="employee" class="p-2 border rounded"></select>
     <select id="product" class="p-2 border rounded"></select>
     <input id="qty" type="number" placeholder="Qty" class="p-2 border rounded">
@@ -178,6 +179,7 @@ async function addOrder() {
 
   const payload = {
     dealer_id: dealer.value,
+    order_date: order_date.value || null,
     employee_id: employee.value || null,
     product_id: product.value,
     qty: qty.value,
@@ -207,6 +209,7 @@ async function addOrder() {
       dealer_name_view.value = "";
       dealer_mobile_view.value = "";
       dealer_address_view.value = "";
+      order_date.value = "";
       qty.value = "";
       paid_amount.value = "";
       credit_due_date.value = "";

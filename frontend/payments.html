@@ -30,6 +30,7 @@
   <div class="mb-6 grid grid-cols-1 gap-4 rounded-xl bg-white p-5 shadow sm:grid-cols-2 xl:grid-cols-6" data-entry-form data-entry-title="Add Payment">
     <select id="order" class="p-2 border rounded"></select>
     <input id="amount" placeholder="Amount" class="p-2 border rounded">
+    <input id="payment_date" type="date" placeholder="Payment Date" class="p-2 border rounded">
     <input id="mode" placeholder="Mode" value="NEFT/RTGS" class="p-2 border rounded">
     <input id="reference_no" placeholder="Reference No" class="p-2 border rounded">
     <input id="notes" placeholder="Notes" class="p-2 border rounded">
@@ -118,6 +119,7 @@ async function addPayment() {
       body: JSON.stringify({
         order_id: order.value,
         amount: amount.value,
+        date: payment_date.value || null,
         mode: mode.value.trim(),
         reference_no: reference_no.value.trim(),
         notes: notes.value.trim()
@@ -127,6 +129,7 @@ async function addPayment() {
     if (data.success) {
       showApiStatus("Payment added successfully.", "success");
       amount.value = "";
+      payment_date.value = "";
       reference_no.value = "";
       notes.value = "";
       closeEntryModal();

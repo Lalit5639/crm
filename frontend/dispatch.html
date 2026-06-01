@@ -33,6 +33,7 @@
     <select id="transport" class="border p-2 rounded">
       <option value="">Select Transport</option>
     </select>
+    <input id="dispatch_date" type="date" placeholder="Dispatch Date" class="border p-2 rounded">
     <input id="vehicle" placeholder="Vehicle No" class="border p-2 rounded">
     <input id="driver_name" placeholder="Driver Name" class="border p-2 rounded">
     <input id="driver_phone" placeholder="Driver Phone" class="border p-2 rounded">
@@ -140,6 +141,7 @@ async function addDispatch() {
         order_id: order.value,
         invoice_no: invoice_no.value.trim(),
         transport_name: transport.value,
+        dispatch_date: dispatch_date.value || null,
         vehicle_no: vehicle.value.trim(),
         driver_name: driver_name.value.trim(),
         driver_phone: driver_phone.value.trim(),

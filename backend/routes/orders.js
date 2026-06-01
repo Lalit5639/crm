@@ -37,6 +37,7 @@ router.get("/", async (req, res) => {
 router.post("/", async (req, res) => {
   let {
     dealer_id,
+    order_date,
     product_id,
     employee_id,
     qty,
@@ -80,7 +81,7 @@ router.post("/", async (req, res) => {
       "outstanding",
     ];
     const values = [
-      new Date(),
+      order_date || new Date(),
       dealer_id,
       product_id,
       qty,
