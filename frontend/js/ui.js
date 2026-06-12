@@ -6,6 +6,7 @@
     { href: "payments.html", label: "Payments", icon: "Rs", group: "Work" },
     { href: "delivery.html", label: "Delivery Proof", icon: "V", group: "Work" },
     { href: "dispatch.html", label: "Dispatch", icon: "S", group: "Work" },
+    { href: "settings.html", label: "Settings", icon: "⚙", group: "Work" },
     { href: "recovery.html", label: "Recovery Aging", icon: "R", group: "Reports" },
     { href: "ledger.html", label: "Ledger", icon: "L", group: "Reports" },
     { href: "incentive.html", label: "Incentive Sheet", icon: "I", group: "Reports" },

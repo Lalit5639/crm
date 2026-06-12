@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Settings</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="./css/app.css" />
+  <script src="./js/api.js"></script>
+  <script src="./js/actions.js"></script>
+  <script src="./js/ui.js" defer></script>
+</head>
+<body class="bg-gray-100 text-slate-800">
+  <main class="min-w-0 flex-1 p-4 sm:p-6">
+    <div class="mb-6">
+      <p class="text-sm font-semibold uppercase tracking-[0.2em] text-emerald-700">Account Control</p>
+      <h1 class="text-2xl font-black text-slate-900">User ID & Password Settings</h1>
+      <p class="mt-2 text-slate-600">Yahan aap naya user bana sakte ho aur apne login ID / password ko update kar sakte ho.</p>
+    </div>
+
+    <section class="grid gap-6 xl:grid-cols-2">
+      <article class="rounded-2xl bg-white p-6 shadow-sm border border-slate-200">
+        <h2 class="text-xl font-bold text-slate-900">Create New User</h2>
+        <p class="mt-1 text-sm text-slate-500">Naya username aur password create karein.</p>
+        <div class="mt-5 space-y-3">
+          <input id="newUserName" type="text" placeholder="New Username" class="w-full rounded-xl border border-slate-200 p-3" />
+          <input id="newUserPassword" type="password" placeholder="New Password" class="w-full rounded-xl border border-slate-200 p-3" />
+          <input id="newUserConfirm" type="password" placeholder="Confirm Password" class="w-full rounded-xl border border-slate-200 p-3" />
+          <button onclick="createUser()" class="w-full rounded-xl bg-emerald-600 px-4 py-3 font-semibold text-white">Create User</button>
+          <p id="createStatus" class="text-sm"></p>
+        </div>
+      </article>
+
+      <article class="rounded-2xl bg-white p-6 shadow-sm border border-slate-200">
+        <h2 class="text-xl font-bold text-slate-900">Change Login Credentials</h2>
+        <p class="mt-1 text-sm text-slate-500">Current username aur password ke basis par ID / password update karein.</p>
+        <div class="mt-5 space-y-3">
+          <input id="currentUserName" type="text" placeholder="Current Username" class="w-full rounded-xl border border-slate-200 p-3" />
+          <input id="currentPassword" type="password" placeholder="Current Password" class="w-full rounded-xl border border-slate-200 p-3" />
+          <input id="newUsername" type="text" placeholder="New Username (optional)" class="w-full rounded-xl border border-slate-200 p-3" />
+          <input id="newPassword" type="password" placeholder="New Password (optional)" class="w-full rounded-xl border border-slate-200 p-3" />
+          <input id="newPasswordConfirm" type="password" placeholder="Confirm New Password" class="w-full rounded-xl border border-slate-200 p-3" />
+          <button onclick="updateCredentials()" class="w-full rounded-xl bg-blue-600 px-4 py-3 font-semibold text-white">Update Credentials</button>
+          <p id="updateStatus" class="text-sm"></p>
+        </div>
+      </article>
+    </section>
+  </main>
+
+  <script>
+    function setMessage(element, message, tone = 'error') {
+      element.textContent = message;
+      element.className = `text-sm ${tone === 'success' ? 'text-green-700' : 'text-red-600'}`;
+    }
+
+    async function createUser() {
+      const username = newUserName.value.trim();
+      const password = newUserPassword.value;
+      const confirm = newUserConfirm.value;
+      const status = document.getElementById('createStatus');
+
+      if (!username || !password) {
+        setMessage(status, 'Username aur password dono required hain.', 'error');
+        return;
+      }
+
+      if (password !== confirm) {
+        setMessage(status, 'Password confirm nahi ho raha.', 'error');
+        return;
+      }
+
+      try {
+        const data = await apiFetch('/api/auth/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password, role: 'admin' })
+        });
+        setMessage(status, data.message || 'User create ho gaya.', 'success');
+        newUserName.value = '';
+        newUserPassword.value = '';
+        newUserConfirm.value = '';
+      } catch (err) {
+        setMessage(status, err.message || 'User create nahi ho saka.', 'error');
+      }
+    }
+
+    async function updateCredentials() {
+      const username = currentUserName.value.trim();
+      const currentPassword = currentPassword.value;
+      const newUsername = newUsername.value.trim();
+      const newPassword = newPassword.value;
+      const confirm = newPasswordConfirm.value;
+      const status = document.getElementById('updateStatus');
+
+      if (!username || !currentPassword) {
+        setMessage(status, 'Current username aur current password required hain.', 'error');
+        return;
+      }
+
+      if (newPassword && newPassword !== confirm) {
+        setMessage(status, 'New password confirm nahi ho raha.', 'error');
+        return;
+      }
+
+      try {
+        const data = await apiFetch('/api/auth/change-password', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            username,
+            currentPassword,
+            newUsername: newUsername || undefined,
+            newPassword: newPassword || undefined,
+          })
+        });
+        setMessage(status, data.message || 'Credentials update ho gaye.', 'success');
+        currentUserName.value = '';
+        currentPassword.value = '';
+        newUsername.value = '';
+        newPassword.value = '';
+        newPasswordConfirm.value = '';
+      } catch (err) {
+        setMessage(status, err.message || 'Credentials update nahi ho saka.', 'error');
+      }
+    }
+  </script>
+</body>
+</html>
