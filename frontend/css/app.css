@@ -505,7 +505,9 @@ body:not(.login-page) button {
 
 .app-main [id$="Section"],
 .app-main .overflow-hidden {
-  overflow: hidden !important;
+  overflow-x: auto !important;
+  overflow-y: auto !important;
+  max-height: calc(100vh - 220px) !important;
 }
 
 .app-main thead {
