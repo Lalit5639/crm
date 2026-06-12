@@ -48,7 +48,8 @@
     <input id="paid_amount" type="number" placeholder="Received Amount" class="p-2 border rounded">
     <input id="credit_due_date" type="date" class="p-2 border rounded">
     <input id="notes" placeholder="Notes" class="p-2 border rounded">
-    <button onclick="addOrder()" class="bg-green-600 text-white rounded">Add Order</button>
+    <button id="orderSubmitBtn" type="button" onclick="saveOrder()" class="bg-green-600 text-white rounded">Add Order</button>
+    <button id="cancelOrderEditBtn" type="button" onclick="cancelOrderEdit()" class="hidden rounded bg-slate-400 px-3 py-2 text-white">Cancel Edit</button>
   </div>
 
   <div class="mb-6 flex flex-col gap-3 rounded-xl bg-white p-4 shadow sm:flex-row sm:flex-wrap">
@@ -104,6 +105,24 @@
 
 <script>
 let dealerList = [];
+let editingOrderId = null;
+
+function resetOrderForm() {
+  dealer_lookup.value = "";
+  dealer.value = "";
+  dealer_name_view.value = "";
+  dealer_mobile_view.value = "";
+  dealer_address_view.value = "";
+  order_date.value = "";
+  employee.value = "";
+  product.value = "";
+  qty.value = "";
+  rate.value = "";
+  payment_type.value = "CASH";
+  paid_amount.value = "";
+  credit_due_date.value = "";
+  notes.value = "";
+}
 
 async function loadDropdowns() {
   try {
@@ -221,6 +240,81 @@ async function addOrder() {
   }
 }
 
+async function saveOrder() {
+  if (editingOrderId) {
+    await updateOrder();
+    return;
+  }
+  await addOrder();
+}
+
+async function updateOrder() {
+  fillDealerFromId();
+  const payload = {
+    dealer_id: dealer.value,
+    order_date: order_date.value || null,
+    employee_id: employee.value || null,
+    product_id: product.value,
+    qty: qty.value,
+    rate: rate.value,
+    payment_type: payment_type.value,
+    paid_amount: paid_amount.value || 0,
+    credit_due_date: credit_due_date.value || null,
+    notes: notes.value.trim(),
+    confirmation_message: "Not Sent",
+  };
+
+  if (!payload.dealer_id || !payload.product_id || !payload.qty || !payload.rate) {
+    showApiStatus("Please fill dealer, product, qty and rate.", "info");
+    return;
+  }
+
+  try {
+    const data = await apiFetch(`/api/orders/${editingOrderId}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+    if (data.success) {
+      showApiStatus("Order updated successfully.", "success");
+      closeEntryModal();
+      cancelOrderEdit();
+      await loadOrders();
+    }
+  } catch (err) {}
+}
+
+function editOrder(encodedRow) {
+  const row = decodeRow(encodedRow);
+  editingOrderId = row.id;
+  dealer_lookup.value = row.dealer_code || row.dealer_id || "";
+  dealer.value = row.dealer_id || "";
+  dealer_name_view.value = row.dealer_name || "";
+  dealer_mobile_view.value = row.mobile || "";
+  order_date.value = row.order_date ? String(row.order_date).slice(0, 10) : "";
+  employee.value = row.employee_id || "";
+  product.value = row.product_id || "";
+  qty.value = row.qty || "";
+  rate.value = row.rate || "";
+  payment_type.value = row.payment_type || "CASH";
+  paid_amount.value = row.paid_amount || "";
+  credit_due_date.value = row.credit_due_date ? String(row.credit_due_date).slice(0, 10) : "";
+  notes.value = row.notes || "";
+  orderSubmitBtn.textContent = "Update Order";
+  cancelOrderEditBtn.classList.remove("hidden");
+  if (typeof window.openEntryModal === "function") {
+    const modal = document.querySelector(".entry-modal");
+    if (modal) window.openEntryModal(modal);
+  }
+}
+
+function cancelOrderEdit() {
+  editingOrderId = null;
+  resetOrderForm();
+  orderSubmitBtn.textContent = "Add Order";
+  cancelOrderEditBtn.classList.add("hidden");
+}
+
 async function loadOrders() {
   try {
     const data = filterRowsByDate(await apiFetch("/api/orders"), "order_date", {
@@ -246,7 +340,10 @@ async function loadOrders() {
         <td class="p-2">${o.pending_qty ?? o.qty}</td>
         <td class="p-2">${o.recovery_due_date ? Math.max(Math.ceil((Date.now() - new Date(o.recovery_due_date).getTime()) / 86400000), 0) : 0}</td>
         <td class="p-2 no-print"><button onclick="sendOrderMsg('${encodeRow(o)}')" class="bg-green-600 text-white px-2 py-1 rounded text-xs">Send</button></td>
-        <td class="p-2 no-print">${deleteButton("/api/orders", o.id, "loadOrders", "order")}</td>
+        <td class="p-2 no-print">
+          <button onclick="editOrder('${encodeRow(o)}')" class="rounded bg-blue-600 px-2 py-1 text-xs text-white no-print">Edit</button>
+          ${deleteButton("/api/orders", o.id, "loadOrders", "order")}
+        </td>
       </tr>
     `).join("");
   } catch (err) {

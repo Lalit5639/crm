@@ -115,6 +115,51 @@ router.post("/", async (req, res) => {
   }
 });
 
+router.put("/:id", async (req, res) => {
+  const {
+    order_id,
+    invoice_no,
+    transport_name,
+    dispatch_date,
+    vehicle_no,
+    driver_name,
+    driver_phone,
+    lr_no,
+    eway_bill,
+    dispatch_remarks,
+  } = req.body;
+
+  try {
+    const columns = await getTableColumns("dispatch");
+    const updates = [
+      ["order_id", order_id || null],
+      ["invoice_no", invoice_no || null],
+      ["transport_name", transport_name || null],
+      ["dispatch_date", dispatch_date || null],
+      ["vehicle_no", vehicle_no || null],
+      ["driver_name", driver_name || null],
+      ["driver_phone", driver_phone || null],
+      ["lr_no", lr_no || null],
+      ["eway_bill", eway_bill || null],
+      ["dispatch_remarks", dispatch_remarks || null],
+    ].filter(([column]) => columns.includes(column));
+
+    const setClause = updates.map(([column]) => `${column} = ?`).join(", ");
+    const values = updates.map(([, value]) => value);
+    values.push(req.params.id);
+
+    db.query(`UPDATE dispatch SET ${setClause} WHERE id = ?`, values, (err) => {
+      if (err) return res.status(500).json(err);
+      db.query("UPDATE orders SET status='DISPATCHED' WHERE id=?", [order_id || req.body.order_id], (updateErr) => {
+        if (updateErr) return res.status(500).json(updateErr);
+        res.json({ success: true });
+      });
+    });
+  } catch (err) {
+    res.status(500).json(err);
+  }
+});
+
 router.delete("/:id", (req, res) => {
   db.query("SELECT order_id FROM dispatch WHERE id = ?", [req.params.id], (selectErr, rows) => {
     if (selectErr) return res.status(500).json(selectErr);

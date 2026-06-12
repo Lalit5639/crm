@@ -174,6 +174,26 @@ router.post("/", async (req, res) => {
   });
 });
 
+router.put("/:id", (req, res) => {
+  const { amount, mode, reference_no, status, notes, date, payment_date } = req.body;
+  const paymentDate = date || payment_date || null;
+
+  db.query("SELECT order_id FROM payments WHERE id = ?", [req.params.id], (selectErr, rows) => {
+    if (selectErr) return res.status(500).json(selectErr);
+    if (rows.length === 0) return res.json({ success: false, message: "Payment not found" });
+
+    const orderId = rows[0].order_id;
+    db.query(
+      "UPDATE payments SET amount=?, date=?, mode=?, reference_no=?, status=?, notes=? WHERE id=?",
+      [Number(amount || 0), paymentDate, mode || null, reference_no || null, status || null, notes || null, req.params.id],
+      (updateErr) => {
+        if (updateErr) return res.status(500).json(updateErr);
+        recalculateOrderPayment(orderId, res);
+      }
+    );
+  });
+});
+
 router.delete("/:id", (req, res) => {
   db.query("SELECT order_id FROM payments WHERE id = ?", [req.params.id], (selectErr, rows) => {
     if (selectErr) return res.status(500).json(selectErr);

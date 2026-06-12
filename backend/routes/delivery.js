@@ -126,6 +126,82 @@ router.post("/", async (req, res) => {
   });
 });
 
+router.put("/:id", async (req, res) => {
+  const {
+    order_id,
+    delivery_date,
+    received_by,
+    receiver_phone,
+    condition_status,
+    proof_link,
+    employee_ref,
+    delivered_qty,
+    notes,
+  } = req.body;
+
+  try {
+    const columns = await getTableColumns("delivery_proof");
+    const updates = [
+      ["order_id", order_id || null],
+      ["delivery_date", delivery_date || null],
+      ["received_by", received_by || null],
+      ["receiver_phone", receiver_phone || null],
+      ["condition_status", condition_status || null],
+      ["proof_link", proof_link || null],
+      ["employee_ref", employee_ref || null],
+      ["delivered_qty", delivered_qty || 0],
+      ["notes", notes || null],
+    ].filter(([column]) => columns.includes(column));
+
+    const setClause = updates.map(([column]) => `${column} = ?`).join(", ");
+    const values = updates.map(([, value]) => value);
+    values.push(req.params.id);
+
+    db.query(`UPDATE delivery_proof SET ${setClause} WHERE id = ?`, values, (err) => {
+      if (err) return res.status(500).json(err);
+
+      db.query("SELECT order_id FROM delivery_proof WHERE id = ?", [req.params.id], (selectErr, rows) => {
+        if (selectErr) return res.status(500).json(selectErr);
+        if (rows.length === 0) return res.json({ success: true });
+
+        const currentOrderId = rows[0].order_id;
+        const sql = `
+          SELECT
+            o.qty,
+            COALESCE(SUM(dp.delivered_qty), 0) AS delivered_qty,
+            COUNT(dp.id) AS delivery_count,
+            COUNT(d.id) AS dispatch_count
+          FROM orders o
+          LEFT JOIN delivery_proof dp ON dp.order_id = o.id
+          LEFT JOIN dispatch d ON d.order_id = o.id
+          WHERE o.id = ?
+          GROUP BY o.id, o.qty
+        `;
+
+        db.query(sql, [currentOrderId], (calcErr, calcRows) => {
+          if (calcErr) return res.status(500).json(calcErr);
+          if (calcRows.length === 0) return res.json({ success: true });
+
+          const deliveredQty = Number(calcRows[0].delivered_qty || 0);
+          const pendingQty = Math.max(Number(calcRows[0].qty || 0) - deliveredQty, 0);
+          const status = Number(calcRows[0].delivery_count || 0) > 0 ? "DELIVERED" : Number(calcRows[0].dispatch_count || 0) > 0 ? "DISPATCHED" : "PENDING";
+
+          db.query(
+            "UPDATE orders SET status=?, delivered_qty=?, pending_qty=? WHERE id=?",
+            [status, deliveredQty, pendingQty, currentOrderId],
+            (updateErr) => {
+              if (updateErr) return res.status(500).json(updateErr);
+              res.json({ success: true });
+            }
+          );
+        });
+      });
+    });
+  } catch (err) {
+    res.status(500).json(err);
+  }
+});
+
 router.delete("/:id", (req, res) => {
   db.query("SELECT order_id FROM delivery_proof WHERE id = ?", [req.params.id], (selectErr, rows) => {
     if (selectErr) return res.status(500).json(selectErr);

@@ -40,7 +40,8 @@
     <input id="lr" placeholder="LR Number" class="border p-2 rounded">
     <input id="eway_bill" placeholder="Eway Bill" class="border p-2 rounded">
     <input id="dispatch_remarks" placeholder="Dispatch Remarks" class="border p-2 rounded">
-    <button onclick="addDispatch()" class="bg-green-600 text-white rounded">Dispatch</button>
+    <button id="dispatchSubmitBtn" type="button" onclick="saveDispatch()" class="bg-green-600 text-white rounded">Dispatch</button>
+    <button id="cancelDispatchEditBtn" type="button" onclick="cancelDispatchEdit()" class="hidden rounded bg-slate-400 px-3 py-2 text-white">Cancel Edit</button>
   </div>
 
   <div class="mb-6 flex flex-col gap-3 rounded-xl bg-white p-4 shadow sm:flex-row sm:flex-wrap">
@@ -100,6 +101,21 @@
 </div>
 
 <script>
+let editingDispatchId = null;
+
+function resetDispatchForm() {
+  order.value = "";
+  invoice_no.value = "";
+  transport.value = "";
+  dispatch_date.value = "";
+  vehicle.value = "";
+  driver_name.value = "";
+  driver_phone.value = "";
+  lr.value = "";
+  eway_bill.value = "";
+  dispatch_remarks.value = "";
+}
+
 async function loadOrders() {
   try {
     const data = await apiFetch("/api/dispatch/orders");
@@ -162,6 +178,74 @@ async function addDispatch() {
   }
 }
 
+async function saveDispatch() {
+  if (editingDispatchId) {
+    await updateDispatch();
+    return;
+  }
+  await addDispatch();
+}
+
+async function updateDispatch() {
+  if (!order.value || !transport.value) {
+    showApiStatus("Please select order and transport.", "info");
+    return;
+  }
+
+  try {
+    const data = await apiFetch(`/api/dispatch/${editingDispatchId}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        order_id: order.value,
+        invoice_no: invoice_no.value.trim(),
+        transport_name: transport.value,
+        dispatch_date: dispatch_date.value || null,
+        vehicle_no: vehicle.value.trim(),
+        driver_name: driver_name.value.trim(),
+        driver_phone: driver_phone.value.trim(),
+        lr_no: lr.value.trim(),
+        eway_bill: eway_bill.value.trim(),
+        dispatch_remarks: dispatch_remarks.value.trim(),
+      })
+    });
+    if (data.success) {
+      showApiStatus("Dispatch updated successfully.", "success");
+      closeEntryModal();
+      cancelDispatchEdit();
+      await refreshDispatch();
+    }
+  } catch (err) {}
+}
+
+function editDispatch(encodedRow) {
+  const row = decodeRow(encodedRow);
+  editingDispatchId = row.id;
+  order.value = row.order_id || "";
+  invoice_no.value = row.invoice_no || "";
+  transport.value = row.transport_name || "";
+  dispatch_date.value = row.dispatch_date ? String(row.dispatch_date).slice(0, 10) : "";
+  vehicle.value = row.vehicle_no || "";
+  driver_name.value = row.driver_name || "";
+  driver_phone.value = row.driver_phone || "";
+  lr.value = row.lr_no || "";
+  eway_bill.value = row.eway_bill || "";
+  dispatch_remarks.value = row.dispatch_remarks || "";
+  dispatchSubmitBtn.textContent = "Update Dispatch";
+  cancelDispatchEditBtn.classList.remove("hidden");
+  if (typeof window.openEntryModal === "function") {
+    const modal = document.querySelector(".entry-modal");
+    if (modal) window.openEntryModal(modal);
+  }
+}
+
+function cancelDispatchEdit() {
+  editingDispatchId = null;
+  resetDispatchForm();
+  dispatchSubmitBtn.textContent = "Dispatch";
+  cancelDispatchEditBtn.classList.add("hidden");
+}
+
 async function loadDispatch() {
   try {
     const data = filterRowsByDate(await apiFetch("/api/dispatch"), "dispatch_date", {
@@ -192,7 +276,10 @@ async function loadDispatch() {
         <td class="p-2">${formatCurrency(d.total_amount || 0)}</td>
         <td class="p-2">${d.order_qty || 0}</td>
         <td class="p-2">${d.pending_qty || 0}</td>
-        <td class="p-2 no-print">${deleteButton("/api/dispatch", d.id, "refreshDispatch", "dispatch")}</td>
+        <td class="p-2 no-print">
+          <button onclick="editDispatch('${encodeRow(d)}')" class="rounded bg-blue-600 px-2 py-1 text-xs text-white no-print">Edit</button>
+          ${deleteButton("/api/dispatch", d.id, "refreshDispatch", "dispatch")}
+        </td>
       </tr>
     `).join("");
   } catch (err) {

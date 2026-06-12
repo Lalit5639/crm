@@ -121,6 +121,67 @@ router.post("/", async (req, res) => {
   }
 });
 
+router.put("/:id", async (req, res) => {
+  let {
+    dealer_id,
+    order_date,
+    product_id,
+    employee_id,
+    qty,
+    rate,
+    payment_type,
+    paid_amount,
+    credit_due_date,
+    payment_status,
+    notes,
+    confirmation_message,
+  } = req.body;
+
+  qty = Number(qty || 0);
+  rate = Number(rate || 0);
+  const amount = qty * rate;
+  const paid = payment_type === "CASH" ? amount : Math.min(Number(paid_amount || 0), amount);
+  const outstanding = Math.max(amount - paid, 0);
+
+  try {
+    const deliveredQty = Number(req.body.delivered_qty || 0);
+    const pendingQty = Math.max(qty - deliveredQty, 0);
+    const status = req.body.status || (deliveredQty > 0 ? "DELIVERED" : "PENDING");
+
+    db.query(
+      `UPDATE orders
+       SET dealer_id=?, order_date=?, product_id=?, employee_id=?, qty=?, rate=?, amount=?, payment_type=?, paid_amount=?, outstanding=?, credit_due_date=?, payment_status=?, notes=?, confirmation_message=?, delivered_qty=?, pending_qty=?, status=?
+       WHERE id=?`,
+      [
+        dealer_id || null,
+        order_date || null,
+        product_id || null,
+        employee_id || null,
+        qty,
+        rate,
+        amount,
+        payment_type || "CREDIT",
+        paid,
+        outstanding,
+        credit_due_date || null,
+        payment_status || (outstanding === 0 ? "Paid" : "Partial"),
+        notes || null,
+        confirmation_message || "Not Sent",
+        deliveredQty,
+        pendingQty,
+        status,
+        req.params.id,
+      ],
+      (err) => {
+        if (err) return res.status(500).json(err);
+        res.json({ success: true });
+      }
+    );
+  } catch (err) {
+    res.status(500).json(err);
+  }
+});
+
 router.delete("/:id", (req, res) => {
   db.query("DELETE FROM orders WHERE id = ?", [req.params.id], (err, result) => {
     if (err) return res.status(500).json(err);

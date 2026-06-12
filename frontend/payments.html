@@ -34,7 +34,8 @@
     <input id="mode" placeholder="Mode" value="NEFT/RTGS" class="p-2 border rounded">
     <input id="reference_no" placeholder="Reference No" class="p-2 border rounded">
     <input id="notes" placeholder="Notes" class="p-2 border rounded">
-    <button onclick="addPayment()" class="bg-green-600 text-white rounded">Add Payment</button>
+    <button id="paymentSubmitBtn" type="button" onclick="savePayment()" class="bg-green-600 text-white rounded">Add Payment</button>
+    <button id="cancelPaymentEditBtn" type="button" onclick="cancelPaymentEdit()" class="hidden rounded bg-slate-400 px-3 py-2 text-white">Cancel Edit</button>
   </div>
 
   <div class="mb-6 flex flex-col gap-3 rounded-xl bg-white p-4 shadow sm:flex-row sm:flex-wrap">
@@ -87,6 +88,17 @@
 </div>
 
 <script>
+let editingPaymentId = null;
+
+function resetPaymentForm() {
+  order.value = "";
+  amount.value = "";
+  payment_date.value = "";
+  mode.value = "NEFT/RTGS";
+  reference_no.value = "";
+  notes.value = "";
+}
+
 async function loadOrders() {
   try {
     const data = await apiFetch("/api/payments/orders");
@@ -140,6 +152,67 @@ async function addPayment() {
   }
 }
 
+async function savePayment() {
+  if (editingPaymentId) {
+    await updatePayment();
+    return;
+  }
+  await addPayment();
+}
+
+async function updatePayment() {
+  if (!order.value || !amount.value) {
+    showApiStatus("Please select order and amount.", "info");
+    return;
+  }
+
+  try {
+    const data = await apiFetch(`/api/payments/${editingPaymentId}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        order_id: order.value,
+        amount: amount.value,
+        date: payment_date.value || null,
+        mode: mode.value.trim(),
+        reference_no: reference_no.value.trim(),
+        status: "Pending",
+        notes: notes.value.trim(),
+      })
+    });
+    if (data.success) {
+      showApiStatus("Payment updated successfully.", "success");
+      closeEntryModal();
+      cancelPaymentEdit();
+      await refreshPayments();
+    }
+  } catch (err) {}
+}
+
+function editPayment(encodedRow) {
+  const row = decodeRow(encodedRow);
+  editingPaymentId = row.id;
+  order.value = row.order_id || "";
+  amount.value = row.amount || "";
+  payment_date.value = row.date ? String(row.date).slice(0, 10) : "";
+  mode.value = row.mode || "NEFT/RTGS";
+  reference_no.value = row.reference_no || "";
+  notes.value = row.notes || "";
+  paymentSubmitBtn.textContent = "Update Payment";
+  cancelPaymentEditBtn.classList.remove("hidden");
+  if (typeof window.openEntryModal === "function") {
+    const modal = document.querySelector(".entry-modal");
+    if (modal) window.openEntryModal(modal);
+  }
+}
+
+function cancelPaymentEdit() {
+  editingPaymentId = null;
+  resetPaymentForm();
+  paymentSubmitBtn.textContent = "Add Payment";
+  cancelPaymentEditBtn.classList.add("hidden");
+}
+
 async function loadPayments() {
   try {
     const data = filterRowsByDate(await apiFetch("/api/payments"), "date", {
@@ -163,7 +236,10 @@ async function loadPayments() {
         <td class="p-2">${formatCurrency(p.outstanding || 0)}</td>
         <td class="p-2">${p.rdm_name || "-"}</td>
         <td class="p-2">${p.zm_name || "-"}</td>
-        <td class="p-2 no-print">${deleteButton("/api/payments", p.id, "refreshPayments", "payment")}</td>
+        <td class="p-2 no-print">
+          <button onclick="editPayment('${encodeRow(p)}')" class="rounded bg-blue-600 px-2 py-1 text-xs text-white no-print">Edit</button>
+          ${deleteButton("/api/payments", p.id, "refreshPayments", "payment")}
+        </td>
       </tr>
     `).join("");
   } catch (err) {

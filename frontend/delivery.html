@@ -39,7 +39,8 @@
     <input id="delivered_qty" type="number" placeholder="Delivered Qty" class="entry-span-half border p-2 rounded">
     <input id="pending_qty" type="number" placeholder="Balance Qty" class="entry-span-half border p-2 rounded bg-gray-50" readonly>
     <input id="notes" placeholder="Notes" class="entry-span-full border p-2 rounded">
-    <button onclick="addDeliveryProof()" class="entry-action-button bg-green-600 text-white px-5 py-2 rounded hover:bg-green-700">Add Delivery</button>
+    <button id="deliverySubmitBtn" type="button" onclick="saveDeliveryProof()" class="entry-action-button bg-green-600 text-white px-5 py-2 rounded hover:bg-green-700">Add Delivery</button>
+    <button id="cancelDeliveryEditBtn" type="button" onclick="cancelDeliveryEdit()" class="hidden rounded bg-slate-400 px-3 py-2 text-white">Cancel Edit</button>
   </div>
 
   <div class="mb-6 flex flex-col gap-3 rounded-xl bg-white p-4 shadow sm:flex-row sm:flex-wrap">
@@ -92,6 +93,21 @@
 </div>
 
 <script>
+let editingDeliveryId = null;
+
+function resetDeliveryForm() {
+  order.value = "";
+  received_by.value = "";
+  delivery_date.value = "";
+  condition_status.value = "";
+  receiver_phone.value = "";
+  proof_link.value = "";
+  employee_ref.value = "";
+  delivered_qty.value = "";
+  pending_qty.value = "";
+  notes.value = "";
+}
+
 function selectedOrderQty() {
   return Number(order.options[order.selectedIndex]?.getAttribute("data-qty") || 0);
 }
@@ -158,6 +174,73 @@ async function addDeliveryProof() {
   }
 }
 
+async function saveDeliveryProof() {
+  if (editingDeliveryId) {
+    await updateDeliveryProof();
+    return;
+  }
+  await addDeliveryProof();
+}
+
+async function updateDeliveryProof() {
+  if (!order.value || !proof_link.value.trim()) {
+    showApiStatus("Please select order and proof link.", "info");
+    return;
+  }
+
+  try {
+    const data = await apiFetch(`/api/delivery/${editingDeliveryId}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        order_id: order.value,
+        delivery_date: delivery_date.value || null,
+        received_by: received_by.value.trim(),
+        receiver_phone: receiver_phone.value.trim(),
+        condition_status: condition_status.value.trim(),
+        proof_link: proof_link.value.trim(),
+        employee_ref: employee_ref.value.trim(),
+        delivered_qty: delivered_qty.value || 0,
+        notes: notes.value.trim(),
+      })
+    });
+    if (data.success) {
+      showApiStatus("Delivery proof updated successfully.", "success");
+      closeEntryModal();
+      cancelDeliveryEdit();
+      await refreshDelivery();
+    }
+  } catch (err) {}
+}
+
+function editDelivery(encodedRow) {
+  const row = decodeRow(encodedRow);
+  editingDeliveryId = row.id;
+  order.value = row.order_id || "";
+  received_by.value = row.received_by || "";
+  delivery_date.value = row.delivery_date ? String(row.delivery_date).slice(0, 10) : "";
+  condition_status.value = row.condition_status || "";
+  receiver_phone.value = row.receiver_phone || "";
+  proof_link.value = row.proof_link || "";
+  employee_ref.value = row.employee_ref || "";
+  delivered_qty.value = row.delivered_qty || "";
+  pending_qty.value = row.pending_qty ?? row.order_pending_qty ?? 0;
+  notes.value = row.notes || "";
+  deliverySubmitBtn.textContent = "Update Delivery";
+  cancelDeliveryEditBtn.classList.remove("hidden");
+  if (typeof window.openEntryModal === "function") {
+    const modal = document.querySelector(".entry-modal");
+    if (modal) window.openEntryModal(modal);
+  }
+}
+
+function cancelDeliveryEdit() {
+  editingDeliveryId = null;
+  resetDeliveryForm();
+  deliverySubmitBtn.textContent = "Add Delivery";
+  cancelDeliveryEditBtn.classList.add("hidden");
+}
+
 async function loadData() {
   try {
     const data = filterRowsByDate(await apiFetch("/api/delivery"), "delivery_date", {
@@ -181,7 +264,10 @@ async function loadData() {
         <td class="p-2">${d.pending_qty ?? d.order_pending_qty ?? 0}</td>
         <td class="p-2">${d.product_name || "-"}</td>
         <td class="p-2">${d.notes || "-"}</td>
-        <td class="p-2 no-print">${deleteButton("/api/delivery", d.id, "refreshDelivery", "delivery")}</td>
+        <td class="p-2 no-print">
+          <button onclick="editDelivery('${encodeRow(d)}')" class="rounded bg-blue-600 px-2 py-1 text-xs text-white no-print">Edit</button>
+          ${deleteButton("/api/delivery", d.id, "refreshDelivery", "delivery")}
+        </td>
       </tr>
     `).join("");
   } catch (err) {

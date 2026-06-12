@@ -182,6 +182,7 @@
     }
   }
 
+  window.openEntryModal = openEntryModal;
   window.closeEntryModal = closeEntryModal;
 
   function enhanceAppPage() {
