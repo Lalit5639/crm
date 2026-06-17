@@ -5,10 +5,10 @@ const { resolveColumn } = require("../utils/schema");
 
 router.get("/", async (req, res) => {
   const { month, year } = req.query;
-  let where = "";
+  let where = "WHERE 1=1";
 
   if (month && year) {
-    where = ` AND MONTH(o.order_date) = ${Number(month)} AND YEAR(o.order_date) = ${Number(year)}`;
+    where += ` AND MONTH(o.order_date) = ${Number(month)} AND YEAR(o.order_date) = ${Number(year)}`;
   }
 
   try {
@@ -36,9 +36,9 @@ router.get("/", async (req, res) => {
       LEFT JOIN dealers d ON o.dealer_id = d.id
       LEFT JOIN products p ON o.product_id = p.id
       LEFT JOIN dispatch disp ON o.id = disp.order_id
-      WHERE (o.qty - COALESCE(SUM(disp.dispatch_qty), 0)) > 0
       ${where}
       GROUP BY o.id, o.order_date, o.qty, o.rate, o.amount, o.paid_amount, o.outstanding, o.status, d.${dealerNameColumn}, d.${dealerMobileColumn}, p.name, p.product_code
+      HAVING (o.qty - COALESCE(SUM(disp.dispatch_qty), 0)) > 0
       ORDER BY o.order_date ASC, o.id ASC
     `;
 
