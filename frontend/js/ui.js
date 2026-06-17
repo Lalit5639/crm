@@ -4,6 +4,7 @@
     { href: "orders.html", label: "Orders", icon: "O", group: "Work" },
     { href: "pending.html", label: "Pending Orders", icon: "P", group: "Work" },
     { href: "payments.html", label: "Payments", icon: "Rs", group: "Work" },
+    { href: "advance-payments.html", label: "Advance Payments", icon: "Ad", group: "Work" },
     { href: "delivery.html", label: "Delivery Proof", icon: "V", group: "Work" },
     { href: "dispatch.html", label: "Dispatch", icon: "S", group: "Work" },
     { href: "settings.html", label: "Settings", icon: "⚙", group: "Work" },
