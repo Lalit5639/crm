@@ -5,10 +5,12 @@ const { resolveColumn } = require("../utils/schema");
 
 router.get("/", async (req, res) => {
   const { month, year } = req.query;
-  let where = "WHERE 1=1";
+  const whereParts = ["1=1"];
+  const params = [];
 
   if (month && year) {
-    where += ` AND MONTH(o.order_date) = ${Number(month)} AND YEAR(o.order_date) = ${Number(year)}`;
+    whereParts.push("MONTH(o.order_date) = ?", "YEAR(o.order_date) = ?");
+    params.push(Number(month), Number(year));
   }
 
   try {
@@ -16,6 +18,8 @@ router.get("/", async (req, res) => {
     const dealerMobileColumn = await resolveColumn("dealers", ["phone", "mobile"]);
 
     const sql = `
+      SELECT *
+      FROM (
       SELECT
         o.id,
         o.order_date,
@@ -24,9 +28,21 @@ router.get("/", async (req, res) => {
         p.name AS product_name,
         p.product_code,
         o.qty AS ordered_qty,
-        COALESCE(SUM(disp.dispatch_qty), 0) AS dispatched_qty,
-        (o.qty - COALESCE(SUM(disp.dispatch_qty), 0)) AS pending_qty,
-        ((o.qty - COALESCE(SUM(disp.dispatch_qty), 0)) * o.rate) AS pending_amount,
+        COALESCE((
+          SELECT SUM(CASE WHEN dispatch_qty > 0 THEN dispatch_qty ELSE 1 END) 
+          FROM dispatch 
+          WHERE order_id = o.id
+        ), 0) AS dispatched_qty,
+        (o.qty - COALESCE((
+          SELECT SUM(CASE WHEN dispatch_qty > 0 THEN dispatch_qty ELSE 1 END) 
+          FROM dispatch 
+          WHERE order_id = o.id
+        ), 0)) AS pending_qty,
+        ((o.qty - COALESCE((
+          SELECT SUM(CASE WHEN dispatch_qty > 0 THEN dispatch_qty ELSE 1 END) 
+          FROM dispatch 
+          WHERE order_id = o.id
+        ), 0)) * o.rate) AS pending_amount,
         o.amount AS total_amount,
         o.paid_amount,
         o.outstanding,
@@ -35,18 +51,21 @@ router.get("/", async (req, res) => {
       FROM orders o
       LEFT JOIN dealers d ON o.dealer_id = d.id
       LEFT JOIN products p ON o.product_id = p.id
-      LEFT JOIN dispatch disp ON o.id = disp.order_id
-      ${where}
-      GROUP BY o.id, o.order_date, o.qty, o.rate, o.amount, o.paid_amount, o.outstanding, o.status, d.${dealerNameColumn}, d.${dealerMobileColumn}, p.name, p.product_code
-      HAVING (o.qty - COALESCE(SUM(disp.dispatch_qty), 0)) > 0
-      ORDER BY o.order_date ASC, o.id ASC
+      WHERE ${whereParts.join(" AND ")}
+      ) pending_orders
+      WHERE pending_qty > 0
+      ORDER BY order_date ASC, id ASC
     `;
 
-    db.query(sql, (err, result) => {
-      if (err) return res.status(500).json(err);
+    db.query(sql, params, (err, result) => {
+      if (err) {
+        console.error("Pending orders query error:", err);
+        return res.status(500).json({ error: err.message });
+      }
       res.json(result);
     });
   } catch (err) {
+    console.error("Pending orders catch error:", err);
     res.status(500).json(err);
   }
 });
