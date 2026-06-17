@@ -120,7 +120,7 @@ function resetDispatchForm() {
 
 async function loadOrders() {
   try {
-    const data = await apiFetch("/api/dispatch/orders");
+    const data = await apiFetch("/api/pending");
     order.innerHTML = data.map((o) => `
       <option value="${o.id}">Order #${o.id} - ${o.dealer_name}</option>
     `).join("");
