@@ -103,6 +103,7 @@ CREATE TABLE IF NOT EXISTS payments (
 CREATE TABLE IF NOT EXISTS dispatch (
   id INT AUTO_INCREMENT PRIMARY KEY,
   order_id INT NOT NULL,
+  dispatch_qty INT NOT NULL DEFAULT 0,
   invoice_no VARCHAR(50) DEFAULT NULL,
   transport_name VARCHAR(100) NOT NULL,
   vehicle_no VARCHAR(50) DEFAULT NULL,
@@ -112,9 +113,43 @@ CREATE TABLE IF NOT EXISTS dispatch (
   eway_bill VARCHAR(100) DEFAULT NULL,
   dispatch_remarks TEXT DEFAULT NULL,
   dispatch_date DATETIME NOT NULL,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT fk_dispatch_order
     FOREIGN KEY (order_id) REFERENCES orders(id)
     ON DELETE CASCADE ON UPDATE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS advance_payments (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  dealer_id INT NOT NULL,
+  amount DECIMAL(12,2) NOT NULL,
+  mode VARCHAR(30) DEFAULT 'NEFT/RTGS',
+  reference_no VARCHAR(100) DEFAULT NULL,
+  remarks TEXT DEFAULT NULL,
+  payment_date DATETIME NOT NULL,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_advance_payments_dealer
+    FOREIGN KEY (dealer_id) REFERENCES dealers(id)
+    ON DELETE RESTRICT ON UPDATE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS advance_payment_adjustments (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  advance_payment_id INT NOT NULL,
+  order_id INT NOT NULL,
+  payment_id INT DEFAULT NULL,
+  adjusted_amount DECIMAL(12,2) NOT NULL,
+  adjustment_date DATETIME NOT NULL,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_adjust_advance_payment
+    FOREIGN KEY (advance_payment_id) REFERENCES advance_payments(id)
+    ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT fk_adjust_order
+    FOREIGN KEY (order_id) REFERENCES orders(id)
+    ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT fk_adjust_payment
+    FOREIGN KEY (payment_id) REFERENCES payments(id)
+    ON DELETE SET NULL ON UPDATE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS transport (

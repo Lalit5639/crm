@@ -29,6 +29,7 @@
 
   <div class="mb-6 grid grid-cols-1 gap-3 rounded bg-white p-5 shadow sm:grid-cols-2 xl:grid-cols-5" data-entry-form data-entry-title="Add Dispatch">
     <select id="order" class="border p-2 rounded"></select>
+    <input id="dispatch_qty" type="number" placeholder="Dispatch Qty" class="border p-2 rounded" min="1" required>
     <input id="invoice_no" placeholder="Invoice No" class="border p-2 rounded">
     <select id="transport" class="border p-2 rounded">
       <option value="">Select Transport</option>
@@ -105,6 +106,7 @@ let editingDispatchId = null;
 
 function resetDispatchForm() {
   order.value = "";
+  dispatch_qty.value = "";
   invoice_no.value = "";
   transport.value = "";
   dispatch_date.value = "";
@@ -144,8 +146,8 @@ async function loadTransportOptions() {
 }
 
 async function addDispatch() {
-  if (!order.value || !transport.value) {
-    showApiStatus("Please select order and transport.", "info");
+  if (!order.value || !transport.value || !dispatch_qty.value) {
+    showApiStatus("Please select order, enter dispatch quantity, and select transport.", "info");
     return;
   }
 
@@ -155,6 +157,7 @@ async function addDispatch() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         order_id: order.value,
+        dispatch_qty: dispatch_qty.value,
         invoice_no: invoice_no.value.trim(),
         transport_name: transport.value,
         dispatch_date: dispatch_date.value || null,
@@ -187,8 +190,8 @@ async function saveDispatch() {
 }
 
 async function updateDispatch() {
-  if (!order.value || !transport.value) {
-    showApiStatus("Please select order and transport.", "info");
+  if (!order.value || !transport.value || !dispatch_qty.value) {
+    showApiStatus("Please select order, enter dispatch quantity, and select transport.", "info");
     return;
   }
 
@@ -198,6 +201,7 @@ async function updateDispatch() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         order_id: order.value,
+        dispatch_qty: dispatch_qty.value,
         invoice_no: invoice_no.value.trim(),
         transport_name: transport.value,
         dispatch_date: dispatch_date.value || null,
@@ -222,6 +226,7 @@ function editDispatch(encodedRow) {
   const row = decodeRow(encodedRow);
   editingDispatchId = row.id;
   order.value = row.order_id || "";
+  dispatch_qty.value = row.dispatch_qty || "";
   invoice_no.value = row.invoice_no || "";
   transport.value = row.transport_name || "";
   dispatch_date.value = row.dispatch_date ? String(row.dispatch_date).slice(0, 10) : "";

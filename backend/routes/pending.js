@@ -5,10 +5,10 @@ const { resolveColumn } = require("../utils/schema");
 
 router.get("/", async (req, res) => {
   const { month, year } = req.query;
-  let where = "WHERE COALESCE(o.status, 'PENDING') NOT IN ('DISPATCHED', 'DELIVERED')";
+  let where = "";
 
   if (month && year) {
-    where += ` AND MONTH(o.order_date) = ${Number(month)} AND YEAR(o.order_date) = ${Number(year)}`;
+    where = ` AND MONTH(o.order_date) = ${Number(month)} AND YEAR(o.order_date) = ${Number(year)}`;
   }
 
   try {
@@ -23,19 +23,23 @@ router.get("/", async (req, res) => {
         d.${dealerMobileColumn} AS dealer_phone,
         p.name AS product_name,
         p.product_code,
-        o.qty,
-        o.amount,
+        o.qty AS ordered_qty,
+        COALESCE(SUM(disp.dispatch_qty), 0) AS dispatched_qty,
+        (o.qty - COALESCE(SUM(disp.dispatch_qty), 0)) AS pending_qty,
+        ((o.qty - COALESCE(SUM(disp.dispatch_qty), 0)) * o.rate) AS pending_amount,
+        o.amount AS total_amount,
         o.paid_amount,
         o.outstanding,
         o.status,
-        o.delivered_qty,
-        o.pending_qty,
         DATEDIFF(CURDATE(), o.order_date) AS days_pending
       FROM orders o
       LEFT JOIN dealers d ON o.dealer_id = d.id
       LEFT JOIN products p ON o.product_id = p.id
+      LEFT JOIN dispatch disp ON o.id = disp.order_id
+      WHERE (o.qty - COALESCE(SUM(disp.dispatch_qty), 0)) > 0
       ${where}
-      ORDER BY o.order_date ASC
+      GROUP BY o.id, o.order_date, o.qty, o.rate, o.amount, o.paid_amount, o.outstanding, o.status, d.${dealerNameColumn}, d.${dealerMobileColumn}, p.name, p.product_code
+      ORDER BY o.order_date ASC, o.id ASC
     `;
 
     db.query(sql, (err, result) => {

@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Advance Payments</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="./css/app.css">
+  <script src="./js/api.js"></script>
+  <script src="./js/actions.js"></script>
+  <script src="./js/ui.js" defer></script>
+</head>
+
+<body class="bg-gray-100 flex flex-col overflow-x-hidden lg:flex-row">
+<div class="w-full shrink-0 bg-green-700 p-5 text-white lg:min-h-screen lg:w-64">
+  <h1 class="text-xl font-bold mb-6">Dharohar CRM</h1>
+  <ul class="space-y-2 text-sm">
+    <li><a href="dashboard.html">Dashboard</a></li>
+    <li><a href="payments.html">Payments</a></li>
+    <li><a href="advance-payments.html" class="bg-green-600 p-2 rounded">Advance Payments</a></li>
+  </ul>
+</div>
+
+<div class="min-w-0 flex-1 p-4 sm:p-6">
+  <div class="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <h1 class="text-2xl font-bold">Advance Payments</h1>
+    <button onclick="printSectionById('advancePaymentsSection', 'Advance Payments')" class="bg-blue-600 text-white px-4 py-2 rounded">Print Section</button>
+  </div>
+
+  <div class="mb-6 grid grid-cols-1 gap-3 rounded bg-white p-5 shadow sm:grid-cols-2 xl:grid-cols-5" data-entry-form data-entry-title="Add Advance Payment">
+    <select id="dealer" class="border p-2 rounded" required>
+      <option value="">Select Party/Dealer</option>
+    </select>
+    <input id="amount" type="number" placeholder="Amount" class="border p-2 rounded" step="0.01" required>
+    <select id="mode" class="border p-2 rounded">
+      <option value="NEFT/RTGS">NEFT/RTGS</option>
+      <option value="CHEQUE">CHEQUE</option>
+      <option value="DD">DD</option>
+      <option value="CASH">CASH</option>
+      <option value="BANK_TRANSFER">BANK TRANSFER</option>
+    </select>
+    <input id="reference_no" placeholder="Reference No" class="border p-2 rounded">
+    <input id="payment_date" type="date" placeholder="Payment Date" class="border p-2 rounded">
+    <textarea id="remarks" placeholder="Remarks" class="border p-2 rounded col-span-1 sm:col-span-2"></textarea>
+    <button id="advancePaymentSubmitBtn" type="button" onclick="saveAdvancePayment()" class="bg-green-600 text-white rounded">Add Advance Payment</button>
+    <button id="cancelAdvancePaymentEditBtn" type="button" onclick="cancelAdvancePaymentEdit()" class="hidden rounded bg-slate-400 px-3 py-2 text-white">Cancel Edit</button>
+  </div>
+
+  <div class="mb-6 flex flex-col gap-3 rounded-xl bg-white p-4 shadow sm:flex-row sm:flex-wrap">
+    <input id="advancePaymentSearchDealer" type="text" placeholder="Search by dealer name..." class="rounded border p-2" onkeyup="loadAdvancePayments()">
+    <input id="advancePaymentDateFilter" type="date" class="rounded border p-2" onchange="loadAdvancePayments()">
+    <button onclick="resetAdvancePaymentFilter()" class="rounded bg-slate-700 px-4 py-2 text-white">Reset Filter</button>
+  </div>
+
+  <!-- Available Advance Balance by Dealer -->
+  <div class="mb-6 rounded bg-white p-5 shadow">
+    <h2 class="text-lg font-bold mb-4">Available Advance Balance (Party-wise)</h2>
+    <div class="overflow-x-auto">
+      <table class="w-full text-xs sm:text-sm">
+        <thead class="bg-green-700 text-white">
+          <tr>
+            <th class="p-2 text-left">Sr. No.</th>
+            <th class="p-2 text-left">Party Name</th>
+            <th class="p-2 text-right">Total Advance</th>
+            <th class="p-2 text-right">Adjusted Amount</th>
+            <th class="p-2 text-right">Available Balance</th>
+            <th class="p-2 text-center">Action</th>
+          </tr>
+        </thead>
+        <tbody id="dealerBalanceTable"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Advance Payments Transactions -->
+  <div id="advancePaymentsSection" class="overflow-hidden rounded bg-white p-5 shadow">
+    <h2 class="text-lg font-bold mb-4">Advance Payment Transactions</h2>
+    <table class="w-full table-fixed break-words text-xs sm:text-sm">
+      <thead class="bg-green-700 text-white">
+        <tr>
+          <th class="p-2">Sr. No.</th>
+          <th class="p-2">Date</th>
+          <th class="p-2">Party Name</th>
+          <th class="p-2">Phone</th>
+          <th class="p-2">Amount</th>
+          <th class="p-2">Mode</th>
+          <th class="p-2">Ref No</th>
+          <th class="p-2">Adjusted</th>
+          <th class="p-2">Available</th>
+          <th class="p-2">Remarks</th>
+          <th class="p-2 no-print">Action</th>
+        </tr>
+      </thead>
+      <tbody id="advancePaymentsTable"></tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+let editingAdvancePaymentId = null;
+
+function resetAdvancePaymentForm() {
+  dealer.value = "";
+  amount.value = "";
+  mode.value = "NEFT/RTGS";
+  reference_no.value = "";
+  payment_date.value = new Date().toISOString().split('T')[0];
+  remarks.value = "";
+}
+
+async function loadDealers() {
+  try {
+    const data = await apiFetch("/api/dealers");
+    dealer.innerHTML = '<option value="">Select Party/Dealer</option>' + data.map((d) => `
+      <option value="${d.id}">${d.dealer_name || d.name}</option>
+    `).join("");
+  } catch (err) {
+    dealer.innerHTML = '<option value="">Select Party/Dealer</option>';
+  }
+}
+
+async function loadAdvancePayments() {
+  try {
+    const searchDealer = (document.getElementById("advancePaymentSearchDealer")?.value || "").toLowerCase();
+    const filterDate = document.getElementById("advancePaymentDateFilter")?.value || "";
+
+    const data = await apiFetch("/api/advance-payments");
+    
+    let filtered = data;
+    if (searchDealer) {
+      filtered = filtered.filter(a => (a.dealer_name || "").toLowerCase().includes(searchDealer));
+    }
+    if (filterDate) {
+      filtered = filtered.filter(a => String(a.payment_date).substring(0, 10) === filterDate);
+    }
+
+    advancePaymentsTable.innerHTML = filtered.map((a, index) => `
+      <tr class="border-b">
+        <td class="p-2">${index + 1}</td>
+        <td class="p-2">${formatDate(a.payment_date)}</td>
+        <td class="p-2">${a.dealer_name || "-"}</td>
+        <td class="p-2">${a.dealer_phone || "-"}</td>
+        <td class="p-2 text-right">${formatCurrency(a.amount || 0)}</td>
+        <td class="p-2">${a.mode || "-"}</td>
+        <td class="p-2">${a.reference_no || "-"}</td>
+        <td class="p-2 text-right">${formatCurrency(a.adjusted_amount || 0)}</td>
+        <td class="p-2 text-right font-bold">${formatCurrency(a.available_balance || 0)}</td>
+        <td class="p-2">${a.remarks || "-"}</td>
+        <td class="p-2 no-print">
+          <button onclick="editAdvancePayment('${encodeRow(a)}')" class="rounded bg-blue-600 px-2 py-1 text-xs text-white">Edit</button>
+          ${deleteButton("/api/advance-payments", a.id, "refreshAdvancePayments", "advance payment")}
+        </td>
+      </tr>
+    `).join("");
+  } catch (err) {
+    advancePaymentsTable.innerHTML = "";
+  }
+}
+
+async function loadDealerBalances() {
+  try {
+    const data = await apiFetch("/api/advance-payments/balance/by-dealer");
+    
+    dealerBalanceTable.innerHTML = data.map((b, index) => `
+      <tr class="border-b">
+        <td class="p-2">${index + 1}</td>
+        <td class="p-2">${b.dealer_name || "-"}</td>
+        <td class="p-2 text-right">${formatCurrency(b.total_advance || 0)}</td>
+        <td class="p-2 text-right">${formatCurrency(b.total_adjusted || 0)}</td>
+        <td class="p-2 text-right font-bold text-green-600">${formatCurrency(b.available_balance || 0)}</td>
+        <td class="p-2 text-center">
+          <button onclick="showAdjustmentsForDealer(${b.dealer_id})" class="text-blue-600 underline text-xs">View</button>
+        </td>
+      </tr>
+    `).join("");
+  } catch (err) {
+    dealerBalanceTable.innerHTML = "";
+  }
+}
+
+async function saveAdvancePayment() {
+  if (editingAdvancePaymentId) {
+    await updateAdvancePayment();
+    return;
+  }
+  await addAdvancePayment();
+}
+
+async function addAdvancePayment() {
+  if (!dealer.value || !amount.value) {
+    showApiStatus("Please select dealer and enter amount.", "info");
+    return;
+  }
+
+  try {
+    const data = await apiFetch("/api/advance-payments", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        dealer_id: dealer.value,
+        amount: amount.value,
+        mode: mode.value,
+        reference_no: reference_no.value || null,
+        remarks: remarks.value || null,
+        payment_date: payment_date.value || null
+      })
+    });
+    if (data.success) {
+      showApiStatus("Advance Payment recorded successfully.", "success");
+      resetAdvancePaymentForm();
+      closeEntryModal();
+      await refreshAdvancePayments();
+    }
+  } catch (err) {}
+}
+
+async function updateAdvancePayment() {
+  if (!amount.value) {
+    showApiStatus("Please enter amount.", "info");
+    return;
+  }
+
+  try {
+    const data = await apiFetch(`/api/advance-payments/${editingAdvancePaymentId}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        amount: amount.value,
+        mode: mode.value,
+        reference_no: reference_no.value || null,
+        remarks: remarks.value || null,
+        payment_date: payment_date.value || null
+      })
+    });
+    if (data.success) {
+      showApiStatus("Advance Payment updated successfully.", "success");
+      closeEntryModal();
+      cancelAdvancePaymentEdit();
+      await refreshAdvancePayments();
+    }
+  } catch (err) {}
+}
+
+function editAdvancePayment(encodedRow) {
+  const row = decodeRow(encodedRow);
+  editingAdvancePaymentId = row.id;
+  dealer.value = row.dealer_id || "";
+  amount.value = row.amount || "";
+  mode.value = row.mode || "NEFT/RTGS";
+  reference_no.value = row.reference_no || "";
+  payment_date.value = row.payment_date ? String(row.payment_date).slice(0, 10) : "";
+  remarks.value = row.remarks || "";
+  advancePaymentSubmitBtn.textContent = "Update Advance Payment";
+  cancelAdvancePaymentEditBtn.classList.remove("hidden");
+  if (typeof window.openEntryModal === "function") {
+    const modal = document.querySelector(".entry-modal");
+    if (modal) window.openEntryModal(modal);
+  }
+}
+
+function cancelAdvancePaymentEdit() {
+  editingAdvancePaymentId = null;
+  resetAdvancePaymentForm();
+  advancePaymentSubmitBtn.textContent = "Add Advance Payment";
+  cancelAdvancePaymentEditBtn.classList.add("hidden");
+}
+
+function resetAdvancePaymentFilter() {
+  document.getElementById("advancePaymentSearchDealer").value = "";
+  document.getElementById("advancePaymentDateFilter").value = "";
+  loadAdvancePayments();
+}
+
+async function showAdjustmentsForDealer(dealerId) {
+  showApiStatus("Adjustments view for dealer " + dealerId + " - Feature coming soon", "info");
+}
+
+async function refreshAdvancePayments() {
+  await loadAdvancePayments();
+  await loadDealerBalances();
+  await loadDealers();
+}
+
+// Set default payment date
+payment_date.valueAsDate = new Date();
+
+loadDealers();
+loadAdvancePayments();
+loadDealerBalances();
+</script>
+</body>
+</html>

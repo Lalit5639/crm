@@ -53,7 +53,7 @@ router.get("/", async (req, res) => {
       LEFT JOIN orders o ON p.order_id = o.id
       LEFT JOIN dealers d ON o.dealer_id = d.id
       LEFT JOIN employees e ON o.employee_id = e.id
-      ORDER BY p.id ASC
+      ORDER BY p.date DESC, p.id DESC
     `;
 
     db.query(sql, (err, result) => {

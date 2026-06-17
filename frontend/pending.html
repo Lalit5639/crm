@@ -70,8 +70,10 @@
           <th class="p-2">Dealer</th>
           <th class="p-2">Phone</th>
           <th class="p-2">Tot Qty</th>
+          <th class="p-2">Disp Qty</th>
           <th class="p-2">Pend Qty</th>
           <th class="p-2">Prod</th>
+          <th class="p-2">Pend Amt</th>
           <th class="p-2">Outstd</th>
           <th class="p-2">O/D Days</th>
           <th class="p-2 no-print">Action</th>
@@ -101,18 +103,20 @@ async function loadPending() {
         <td class="p-2">${formatDate(o.order_date)}</td>
         <td class="p-2">${o.dealer_name}</td>
         <td class="p-2">${o.dealer_phone || "-"}</td>
-        <td class="p-2">${o.qty}</td>
-        <td class="p-2">${o.pending_qty ?? o.qty}</td>
+        <td class="p-2">${o.ordered_qty || o.qty || 0}</td>
+        <td class="p-2">${o.dispatched_qty || 0}</td>
+        <td class="p-2 font-bold text-green-600">${o.pending_qty || 0}</td>
         <td class="p-2">${o.product_name}</td>
-        <td class="p-2 text-red-600 font-bold">${formatCurrency(o.outstanding)}</td>
+        <td class="p-2 text-blue-600 font-bold">${formatCurrency(o.pending_amount || 0)}</td>
+        <td class="p-2 text-red-600 font-bold">${formatCurrency(o.outstanding || 0)}</td>
         <td class="p-2">${o.days_pending} days</td>
         <td class="p-2 no-print">${deleteButton("/api/orders", o.id, "loadPending", "order")}</td>
       </tr>
     `).join("");
 
     grandTotal.innerText = formatCurrency(data.reduce((sum, row) => sum + Number(row.outstanding || 0), 0));
-    totalQty.innerText = data.reduce((sum, row) => sum + Number(row.qty || 0), 0);
-    pendingQty.innerText = data.reduce((sum, row) => sum + Number(row.pending_qty ?? row.qty ?? 0), 0);
+    totalQty.innerText = data.reduce((sum, row) => sum + Number(row.ordered_qty || row.qty || 0), 0);
+    pendingQty.innerText = data.reduce((sum, row) => sum + Number(row.pending_qty || 0), 0);
     rowCount.innerText = data.length;
   } catch (err) {
     table.innerHTML = "";

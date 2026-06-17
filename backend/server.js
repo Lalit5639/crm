@@ -44,6 +44,7 @@ try {
   app.use("/api/dealers", require("./routes/dealers"));
   app.use("/api/orders", require("./routes/orders"));
   app.use("/api/payments", require("./routes/payments"));
+  app.use("/api/advance-payments", require("./routes/advance-payments"));
   app.use("/api/dashboard", require("./routes/dashboard"));
   app.use("/api/products", require("./routes/products"));
   app.use("/api/ledger", require("./routes/ledger"));
@@ -71,6 +72,7 @@ app.get("/api/status", (req, res) => {
       "/api/products",
       "/api/orders",
       "/api/payments",
+      "/api/advance-payments",
       "/api/pending",
       "/api/recovery",
       "/api/dispatch",
