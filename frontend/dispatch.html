@@ -266,7 +266,7 @@ async function loadDispatch() {
         <td class="p-2">${formatDate(d.dispatch_date)}</td>
         <td class="p-2">${d.order_status || "-"}</td>
         <td class="p-2">${d.vehicle_no || "-"}</td>
-        <td class="p-2">${d.order_qty || 0}</td>
+        <td class="p-2">${d.dispatch_qty ?? d.qty ?? 0}</td>
         <td class="p-2">${d.transport_name || "-"}</td>
         <td class="p-2">${d.driver_name || "-"}</td>
         <td class="p-2">${d.driver_phone || "-"}</td>

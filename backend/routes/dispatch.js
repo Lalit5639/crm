@@ -1,10 +1,60 @@
 const express = require("express");
 const router = express.Router();
 const db = require("../config/db");
-const { getTableColumns, resolveColumn } = require("../utils/schema");
+const { ensureTableColumn, getTableColumns, resolveColumn } = require("../utils/schema");
+
+async function ensureDispatchQtyColumn() {
+  await ensureTableColumn("dispatch", "dispatch_qty", "INTEGER NOT NULL DEFAULT 0");
+}
+
+function recalculateOrderStatus(orderId, res, successPayload = { success: true }) {
+  db.query(
+    "SELECT qty, COALESCE(pending_qty, qty) AS pending_qty FROM orders WHERE id = ?",
+    [orderId],
+    (err, rows) => {
+      if (err) return res.status(500).json(err);
+      if (rows.length === 0) return res.json(successPayload);
+
+      const orderQty = Number(rows[0].qty || 0);
+      const pendingQty = Math.max(Number(rows[0].pending_qty ?? 0), 0);
+      const status = pendingQty === orderQty ? "PENDING" : (pendingQty > 0 ? "PARTIAL" : "DISPATCHED");
+
+      db.query(
+        "UPDATE orders SET pending_qty=?, status=? WHERE id=?",
+        [pendingQty, status, orderId],
+        (updateErr) => {
+          if (updateErr) return res.status(500).json(updateErr);
+          res.json(successPayload);
+        }
+      );
+    }
+  );
+}
+
+function adjustOrderPending(orderId, delta, callback) {
+  db.query(
+    "SELECT qty, COALESCE(pending_qty, qty) AS pending_qty FROM orders WHERE id = ?",
+    [orderId],
+    (err, rows) => {
+      if (err) return callback(err);
+      if (rows.length === 0) return callback(null);
+
+      const orderQty = Number(rows[0].qty || 0);
+      const pendingQty = Math.min(orderQty, Math.max(Number(rows[0].pending_qty ?? 0) + delta, 0));
+      const status = pendingQty === orderQty ? "PENDING" : (pendingQty > 0 ? "PARTIAL" : "DISPATCHED");
+
+      db.query(
+        "UPDATE orders SET pending_qty=?, status=? WHERE id=?",
+        [pendingQty, status, orderId],
+        callback
+      );
+    }
+  );
+}
 
 router.get("/", async (req, res) => {
   try {
+    await ensureDispatchQtyColumn();
     const dealerNameColumn = await resolveColumn("dealers", ["dealer_name", "name"]);
     const dealerMobileColumn = await resolveColumn("dealers", ["phone", "mobile"]);
 
@@ -38,28 +88,30 @@ router.get("/", async (req, res) => {
 
 router.get("/orders", async (req, res) => {
   try {
+    await ensureDispatchQtyColumn();
     const dealerNameColumn = await resolveColumn("dealers", ["dealer_name", "name"]);
     const dealerMobileColumn = await resolveColumn("dealers", ["phone", "mobile"]);
 
     const sql = `
+      SELECT *
+      FROM (
       SELECT
         o.id,
         o.amount,
         o.qty,
         o.pending_qty,
         o.order_date,
-        COALESCE(SUM(d.dispatch_qty), 0) AS total_dispatched,
-        (o.qty - COALESCE(SUM(d.dispatch_qty), 0)) AS remaining_qty,
+        GREATEST(o.qty - COALESCE(o.pending_qty, o.qty), 0) AS total_dispatched,
+        COALESCE(o.pending_qty, o.qty) AS remaining_qty,
         o.status,
         d.${dealerNameColumn} AS dealer_name,
         d.${dealerMobileColumn} AS mobile
       FROM orders o
       JOIN dealers d ON o.dealer_id = d.id
-      LEFT JOIN dispatch disp ON disp.order_id = o.id
       WHERE o.status IN ('PENDING', 'PARTIAL')
-      GROUP BY o.id, o.amount, o.qty, o.pending_qty, o.order_date, o.status, d.${dealerNameColumn}, d.${dealerMobileColumn}
-      HAVING remaining_qty > 0
-      ORDER BY o.order_date ASC, o.id ASC
+      ) dispatch_orders
+      WHERE remaining_qty > 0
+      ORDER BY order_date ASC, id ASC
     `;
 
     db.query(sql, (err, result) => {
@@ -91,8 +143,9 @@ router.post("/", async (req, res) => {
   }
 
   try {
+    await ensureDispatchQtyColumn();
     // Get order details
-    db.query("SELECT qty FROM orders WHERE id = ?", [order_id], async (err, orderRows) => {
+    db.query("SELECT qty, COALESCE(pending_qty, qty) AS pending_qty FROM orders WHERE id = ?", [order_id], async (err, orderRows) => {
       if (err) return res.status(500).json(err);
       if (orderRows.length === 0) {
         return res.json({ success: false, message: "Order not found" });
@@ -100,10 +153,11 @@ router.post("/", async (req, res) => {
 
       const orderQty = Number(orderRows[0].qty);
       const dispatchQtyNum = Number(dispatch_qty);
+      const currentPendingQty = Number(orderRows[0].pending_qty ?? orderQty);
 
       // Check if dispatch qty exceeds order qty
-      if (dispatchQtyNum > orderQty) {
-        return res.json({ success: false, message: `Dispatch quantity cannot exceed order quantity (${orderQty})` });
+      if (dispatchQtyNum > currentPendingQty) {
+        return res.json({ success: false, message: `Dispatch quantity cannot exceed pending quantity (${currentPendingQty})` });
       }
 
       // Calculate total dispatched for this order
@@ -113,7 +167,7 @@ router.post("/", async (req, res) => {
         async (err, dispatchRows) => {
           if (err) return res.status(500).json(err);
 
-          const totalDispatched = Number(dispatchRows[0].total_dispatched || 0) + dispatchQtyNum;
+          const totalDispatched = Math.max(orderQty - currentPendingQty, 0) + dispatchQtyNum;
 
           if (totalDispatched > orderQty) {
             return res.json({
@@ -147,7 +201,7 @@ router.post("/", async (req, res) => {
               if (insertErr) return res.status(500).json(insertErr);
 
               // Update order pending_qty
-              const newPendingQty = Math.max(orderQty - totalDispatched, 0);
+              const newPendingQty = Math.max(currentPendingQty - dispatchQtyNum, 0);
               const newStatus = totalDispatched >= orderQty ? 'DISPATCHED' : 'PARTIAL';
 
               db.query(
@@ -186,6 +240,7 @@ router.put("/:id", async (req, res) => {
   } = req.body;
 
   try {
+    await ensureDispatchQtyColumn();
     // Get current dispatch record
     db.query("SELECT order_id, dispatch_qty FROM dispatch WHERE id = ?", [req.params.id], async (selectErr, rows) => {
       if (selectErr) return res.status(500).json(selectErr);
@@ -210,11 +265,15 @@ router.put("/:id", async (req, res) => {
 
       async function proceedWithUpdate() {
         // Get new order qty and validate
-        db.query("SELECT qty FROM orders WHERE id = ?", [finalOrderId], async (err, orderRows) => {
+        db.query("SELECT qty, COALESCE(pending_qty, qty) AS pending_qty FROM orders WHERE id = ?", [finalOrderId], async (err, orderRows) => {
           if (err) return res.status(500).json(err);
           if (orderRows.length === 0) return res.json({ success: false, message: "Order not found" });
 
           const orderQty = Number(orderRows[0].qty);
+          const currentPendingQty = Number(orderRows[0].pending_qty ?? orderQty);
+          const adjustedPendingQty = finalOrderId === currentOrderId
+            ? Math.max(currentPendingQty + currentDispatchQty, 0)
+            : currentPendingQty;
 
           // Calculate total dispatched for new order (excluding current record)
           db.query(
@@ -223,7 +282,7 @@ router.put("/:id", async (req, res) => {
             async (err, dispatchRows) => {
               if (err) return res.status(500).json(err);
 
-              const totalDispatched = Number(dispatchRows[0].total_dispatched || 0) + finalDispatchQty;
+              const totalDispatched = Math.max(orderQty - adjustedPendingQty, 0) + finalDispatchQty;
 
               if (totalDispatched > orderQty) {
                 return res.json({
@@ -256,7 +315,7 @@ router.put("/:id", async (req, res) => {
                   if (updateErr) return res.status(500).json(updateErr);
 
                   // Update the new order
-                  const newPendingQty = Math.max(orderQty - totalDispatched, 0);
+                  const newPendingQty = Math.max(adjustedPendingQty - finalDispatchQty, 0);
                   const newStatus = totalDispatched >= orderQty ? 'DISPATCHED' : 'PARTIAL';
 
                   db.query(
@@ -267,26 +326,10 @@ router.put("/:id", async (req, res) => {
 
                       // If order changed, recalculate old order
                       if (finalOrderId !== currentOrderId) {
-                        db.query(
-                          "SELECT qty, COALESCE(SUM(d.dispatch_qty), 0) AS total_dispatched FROM orders o LEFT JOIN dispatch d ON o.id = d.order_id WHERE o.id = ? GROUP BY o.id, o.qty",
-                          [currentOrderId],
-                          (oldErr, oldRows) => {
-                            if (!oldErr && oldRows.length > 0) {
-                              const oldOrderQty = Number(oldRows[0].qty);
-                              const oldTotalDispatched = Number(oldRows[0].total_dispatched || 0);
-                              const oldPendingQty = Math.max(oldOrderQty - oldTotalDispatched, 0);
-                              const oldStatus = oldTotalDispatched >= oldOrderQty ? 'DISPATCHED' : (oldTotalDispatched > 0 ? 'PARTIAL' : 'PENDING');
-
-                              db.query(
-                                "UPDATE orders SET pending_qty=?, status=? WHERE id=?",
-                                [oldPendingQty, oldStatus, currentOrderId],
-                                () => res.json({ success: true })
-                              );
-                            } else {
-                              res.json({ success: true });
-                            }
-                          }
-                        );
+                        adjustOrderPending(currentOrderId, currentDispatchQty, (oldOrderErr) => {
+                          if (oldOrderErr) return res.status(500).json(oldOrderErr);
+                          res.json({ success: true });
+                        });
                       } else {
                         res.json({ success: true });
                       }
@@ -306,26 +349,32 @@ router.put("/:id", async (req, res) => {
   }
 });
 
-router.delete("/:id", (req, res) => {
-  db.query("SELECT order_id FROM dispatch WHERE id = ?", [req.params.id], (selectErr, rows) => {
+router.delete("/:id", async (req, res) => {
+  try {
+    await ensureDispatchQtyColumn();
+  } catch (err) {
+    return res.status(500).json(err);
+  }
+
+  db.query("SELECT order_id, dispatch_qty FROM dispatch WHERE id = ?", [req.params.id], (selectErr, rows) => {
     if (selectErr) return res.status(500).json(selectErr);
     if (rows.length === 0) return res.json({ success: true, deleted: 0 });
 
     const orderId = rows[0].order_id;
+    const dispatchQty = Number(rows[0].dispatch_qty || 0);
     db.query("DELETE FROM dispatch WHERE id = ?", [req.params.id], (deleteErr) => {
       if (deleteErr) return res.status(500).json(deleteErr);
 
       // Recalculate pending qty for the order
       db.query(
-        "SELECT qty, COALESCE(SUM(d.dispatch_qty), 0) AS total_dispatched FROM orders o LEFT JOIN dispatch d ON o.id = d.order_id WHERE o.id = ? GROUP BY o.id, o.qty",
+        "SELECT qty, COALESCE(pending_qty, qty) AS pending_qty FROM orders WHERE id = ?",
         [orderId],
         (calcErr, calcRows) => {
           if (calcErr) return res.status(500).json(calcErr);
           if (calcRows.length === 0) return res.json({ success: true, deleted: 1 });
 
           const orderQty = Number(calcRows[0].qty);
-          const totalDispatched = Number(calcRows[0].total_dispatched || 0);
-          const pendingQty = Math.max(orderQty - totalDispatched, 0);
+          const pendingQty = Math.min(orderQty, Math.max(Number(calcRows[0].pending_qty ?? 0) + dispatchQty, 0));
           const status = pendingQty === orderQty ? 'PENDING' : (pendingQty > 0 ? 'PARTIAL' : 'DISPATCHED');
 
           db.query(

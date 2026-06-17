@@ -37,6 +37,8 @@ router.get("/balance/by-dealer", async (req, res) => {
     const dealerNameColumn = await resolveColumn("dealers", ["dealer_name", "name"]);
 
     const sql = `
+      SELECT *
+      FROM (
       SELECT
         ap.dealer_id,
         d.${dealerNameColumn} AS dealer_name,
@@ -47,8 +49,9 @@ router.get("/balance/by-dealer", async (req, res) => {
       LEFT JOIN dealers d ON ap.dealer_id = d.id
       LEFT JOIN advance_payment_adjustments apa ON ap.id = apa.advance_payment_id
       GROUP BY ap.dealer_id, d.${dealerNameColumn}
-      HAVING available_balance > 0
-      ORDER BY d.${dealerNameColumn}
+      ) advance_balances
+      WHERE available_balance > 0
+      ORDER BY dealer_name
     `;
 
     db.query(sql, (err, result) => {
