@@ -241,6 +241,43 @@ function cancelDeliveryEdit() {
   cancelDeliveryEditBtn.classList.add("hidden");
 }
 
+function escapeAttribute(value) {
+  return String(value || "")
+    .replace(/&/g, "&amp;")
+    .replace(/"/g, "&quot;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+function isDriveUrl(value) {
+  try {
+    const url = new URL(value);
+    return url.hostname === "drive.google.com" || url.hostname.endsWith(".drive.google.com");
+  } catch (err) {
+    return false;
+  }
+}
+
+function renderProofLink(row) {
+  const proofUrl = row.proof_link || (row.image ? apiUrl(`/uploads/${row.image}`) : "");
+  if (!proofUrl) return "-";
+
+  const safeUrl = escapeAttribute(proofUrl);
+  const label = isDriveUrl(proofUrl) ? "Open Google Drive proof" : "Open proof file";
+
+  return `
+    <a class="proof-file-link" href="${safeUrl}" target="_blank" rel="noopener" title="${label}" aria-label="${label}">
+      <svg class="proof-drive-icon" viewBox="0 0 48 48" aria-hidden="true" focusable="false">
+        <path fill="#1e8e3e" d="M19.2 6h9.6l12.8 22.2H32L19.2 6Z"></path>
+        <path fill="#fbbc04" d="M6.4 28.2 19.2 6 24 14.3 16 28.2H6.4Z"></path>
+        <path fill="#4285f4" d="M16 28.2h25.6L36.8 42H11.2L16 28.2Z"></path>
+        <path fill="#34a853" d="M6.4 28.2h9.6L11.2 42 6.4 28.2Z"></path>
+        <path fill="#188038" d="M32 28.2h9.6L36.8 42 32 28.2Z"></path>
+      </svg>
+    </a>
+  `;
+}
+
 async function loadData() {
   try {
     const data = filterRowsByDate(await apiFetch("/api/delivery"), "delivery_date", {
@@ -256,7 +293,7 @@ async function loadData() {
         <td class="p-2">${d.received_by || "-"}</td>
         <td class="p-2">${d.receiver_phone || "-"}</td>
         <td class="p-2">${d.condition_status || "-"}</td>
-        <td class="p-2">${d.proof_link || d.image ? `<a class="text-blue-700 underline" href="${d.proof_link || apiUrl(`/uploads/${d.image}`)}" target="_blank">${d.proof_link || d.image}</a>` : "-"}</td>
+        <td class="p-2">${renderProofLink(d)}</td>
         <td class="p-2">${d.employee_ref || "-"}</td>
         <td class="p-2"><button onclick="sendDeliveryMsg('${encodeRow(d)}')" class="text-blue-700 underline">Send MSG</button></td>
         <td class="p-2">${d.order_qty || 0}</td>

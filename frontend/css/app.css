@@ -543,6 +543,31 @@ body:not(.login-page) button {
   background: #edf8f4;
 }
 
+.proof-file-link {
+  display: inline-grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border: 1px solid #dbe5ef;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 5px 12px rgba(15, 23, 42, 0.08);
+  vertical-align: middle;
+}
+
+.proof-file-link:hover,
+.proof-file-link:focus {
+  border-color: rgba(37, 99, 235, 0.5);
+  background: #f8fbff;
+  outline: none;
+}
+
+.proof-drive-icon {
+  width: 24px;
+  height: 24px;
+  display: block;
+}
+
 .app-main .bg-green-600,
 .app-main .bg-green-700 {
   background-color: var(--app-primary) !important;
