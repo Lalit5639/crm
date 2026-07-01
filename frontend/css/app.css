@@ -223,6 +223,44 @@ body:not(.login-page) button {
   box-shadow: var(--app-soft-shadow) !important;
 }
 
+.app-main .advance-payment-filter {
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: nowrap !important;
+  align-items: center;
+  gap: 12px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+}
+
+.app-main .advance-payment-filter > #advancePaymentSearchDealer {
+  flex: 1 1 420px;
+  min-width: 280px;
+}
+
+.app-main .advance-payment-filter > #advancePaymentDateFilter {
+  flex: 0 0 190px;
+  width: 190px !important;
+  min-width: 190px;
+}
+
+.app-main .advance-payment-filter > button {
+  flex: 0 0 auto;
+  width: auto !important;
+  min-width: max-content;
+  padding-left: 16px !important;
+  padding-right: 16px !important;
+  white-space: nowrap;
+}
+
+.app-main .advance-table-wrap {
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+}
+
 .app-main .grid.bg-white,
 .app-main div[class*="grid"][class*="bg-white"] {
   align-items: end;

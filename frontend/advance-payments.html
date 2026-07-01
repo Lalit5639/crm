@@ -46,7 +46,7 @@
     <button id="cancelAdvancePaymentEditBtn" type="button" onclick="cancelAdvancePaymentEdit()" class="hidden rounded bg-slate-400 px-3 py-2 text-white">Cancel Edit</button>
   </div>
 
-  <div class="mb-6 flex flex-col gap-3 rounded-xl bg-white p-4 shadow sm:flex-row sm:flex-wrap">
+  <div class="advance-payment-filter mb-6 rounded-xl bg-white p-4 shadow">
     <input id="advancePaymentSearchDealer" type="text" placeholder="Search by dealer name..." class="rounded border p-2" onkeyup="loadAdvancePayments()">
     <input id="advancePaymentDateFilter" type="date" class="rounded border p-2" onchange="loadAdvancePayments()">
     <button onclick="resetAdvancePaymentFilter()" class="rounded bg-slate-700 px-4 py-2 text-white">Reset Filter</button>
@@ -55,16 +55,16 @@
   <!-- Available Advance Balance by Dealer -->
   <div class="mb-6 rounded bg-white p-5 shadow">
     <h2 class="text-lg font-bold mb-4">Available Advance Balance (Party-wise)</h2>
-    <div class="overflow-x-auto">
-      <table class="w-full text-xs sm:text-sm">
+    <div class="advance-table-wrap">
+      <table class="w-full min-w-[980px] table-fixed break-words text-xs sm:text-sm">
         <thead class="bg-green-700 text-white">
           <tr>
-            <th class="p-2 text-left">Sr. No.</th>
+            <th class="w-24 p-2 text-left">Sr. No.</th>
             <th class="p-2 text-left">Party Name</th>
-            <th class="p-2 text-right">Total Advance</th>
-            <th class="p-2 text-right">Adjusted Amount</th>
-            <th class="p-2 text-right">Available Balance</th>
-            <th class="p-2 text-center">Action</th>
+            <th class="w-44 p-2 text-right">Total Advance</th>
+            <th class="w-44 p-2 text-right">Adjusted Amount</th>
+            <th class="w-48 p-2 text-right">Available Balance</th>
+            <th class="w-32 p-2 text-center">Action</th>
           </tr>
         </thead>
         <tbody id="dealerBalanceTable"></tbody>
@@ -73,26 +73,28 @@
   </div>
 
   <!-- Advance Payments Transactions -->
-  <div id="advancePaymentsSection" class="overflow-hidden rounded bg-white p-5 shadow">
+  <div id="advancePaymentsSection" class="rounded bg-white p-5 shadow">
     <h2 class="text-lg font-bold mb-4">Advance Payment Transactions</h2>
-    <table class="w-full table-fixed break-words text-xs sm:text-sm">
-      <thead class="bg-green-700 text-white">
-        <tr>
-          <th class="p-2">Sr. No.</th>
-          <th class="p-2">Date</th>
-          <th class="p-2">Party Name</th>
-          <th class="p-2">Phone</th>
-          <th class="p-2">Amount</th>
-          <th class="p-2">Mode</th>
-          <th class="p-2">Ref No</th>
-          <th class="p-2">Adjusted</th>
-          <th class="p-2">Available</th>
-          <th class="p-2">Remarks</th>
-          <th class="p-2 no-print">Action</th>
-        </tr>
-      </thead>
-      <tbody id="advancePaymentsTable"></tbody>
-    </table>
+    <div class="advance-table-wrap">
+      <table class="w-full min-w-[1180px] table-fixed break-words text-xs sm:text-sm">
+        <thead class="bg-green-700 text-white">
+          <tr>
+            <th class="w-20 p-2">Sr. No.</th>
+            <th class="w-28 p-2">Date</th>
+            <th class="w-44 p-2">Party Name</th>
+            <th class="w-32 p-2">Phone</th>
+            <th class="w-36 p-2 text-right">Amount</th>
+            <th class="w-32 p-2">Mode</th>
+            <th class="w-32 p-2">Ref No</th>
+            <th class="w-32 p-2 text-right">Adjusted</th>
+            <th class="w-36 p-2 text-right">Available</th>
+            <th class="p-2">Remarks</th>
+            <th class="w-28 p-2 no-print">Action</th>
+          </tr>
+        </thead>
+        <tbody id="advancePaymentsTable"></tbody>
+      </table>
+    </div>
   </div>
 </div>
 
@@ -146,7 +148,7 @@ async function loadAdvancePayments() {
         <td class="p-2 text-right">${formatCurrency(a.adjusted_amount || 0)}</td>
         <td class="p-2 text-right font-bold">${formatCurrency(a.available_balance || 0)}</td>
         <td class="p-2">${a.remarks || "-"}</td>
-        <td class="p-2 no-print">
+        <td class="p-2 no-print whitespace-nowrap">
           <button onclick="editAdvancePayment('${encodeRow(a)}')" class="rounded bg-blue-600 px-2 py-1 text-xs text-white">Edit</button>
           ${deleteButton("/api/advance-payments", a.id, "refreshAdvancePayments", "advance payment")}
         </td>
